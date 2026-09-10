@@ -1,6 +1,6 @@
-# JP_GNSS_HAT
+# ros2-jp-gnss
 
-ROS 2 Lifecycle Node wrapping the [jimmypaputto/GnssHat](https://github.com/jimmypaputto/GnssHat) driver library. Publishes full navigation data from Jimmy Paputto GNSS HATs on Raspberry Pi. Buy the HATs at [jimmypaputto.com](https://jimmypaputto.com).
+ROS 2 package `jp_gnss_hat` — a Lifecycle Node wrapping the [jimmypaputto/GnssHat](https://github.com/jimmypaputto/GnssHat) driver library. Publishes full navigation data from Jimmy Paputto GNSS HATs on Raspberry Pi. Buy the HATs at [jimmypaputto.com](https://jimmypaputto.com).
 
 ## Supported Hardware
 
@@ -39,7 +39,7 @@ Optional - NTRIP bridge (`rtcm_msgs/Message` on `/rtcm`). Since there are no apt
 source ~/ros2_jazzy/install/setup.bash
 mkdir -p ~/ros2-ws/src
 cd ~/ros2-ws/src
-git clone https://github.com/jimmypaputto/jp_gnss_hat.git
+git clone https://github.com/jimmypaputto/ros2-jp-gnss.git
 cd ~/ros2-ws
 rosdep install --from-paths src --ignore-src -y
 colcon build --packages-select jp_gnss_hat
