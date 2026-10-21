@@ -18,8 +18,8 @@ float32 heading            # degrees
 float32 heading_accuracy   # degrees
 
 # Accuracy
-float32 horizontal_accuracy  # mm
-float32 vertical_accuracy    # mm
+float32 horizontal_accuracy  # m
+float32 vertical_accuracy    # m
 
 # Satellites
 uint8 visible_satellites

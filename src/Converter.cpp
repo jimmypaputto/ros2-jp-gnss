@@ -224,9 +224,9 @@ sensor_msgs::msg::NavSatFix Converter::toNavSatFix(
     fix.longitude = pvt.longitude;
     fix.altitude  = static_cast<double>(pvt.altitude);
 
-    // Build ENU covariance from horizontal/vertical accuracy (mm → m)
-    const double hAcc_m = pvt.horizontalAccuracy / 1000.0;
-    const double vAcc_m = pvt.verticalAccuracy / 1000.0;
+    // gnsshat already reports accuracies in metres
+    const double hAcc_m = static_cast<double>(pvt.horizontalAccuracy);
+    const double vAcc_m = static_cast<double>(pvt.verticalAccuracy);
     const double hVar = hAcc_m * hAcc_m;
     const double vVar = vAcc_m * vAcc_m;
 
@@ -277,29 +277,27 @@ geometry_msgs::msg::TwistWithCovarianceStamped Converter::toTwist(
     return twist;
 }
 
-sensor_msgs::msg::TimeReference Converter::toTimeReference(
+std::optional<sensor_msgs::msg::TimeReference> Converter::toTimeReference(
     const PositionVelocityTime& pvt) const
 {
+    // A UTC time without a valid date cannot form an epoch
+    if (!pvt.date.valid || !pvt.utc.valid)
+        return std::nullopt;
+
     sensor_msgs::msg::TimeReference timeRef;
     timeRef.header = makeHeader();
 
-    // Reconstruct seconds-of-day as a rough time_ref
-    // Full date is also available for complete epoch
-    if (pvt.date.valid && pvt.utc.valid)
-    {
-        struct tm t{};
-        t.tm_year = pvt.date.year - 1900;
-        t.tm_mon  = pvt.date.month - 1;
-        t.tm_mday = pvt.date.day;
-        t.tm_hour = pvt.utc.hh;
-        t.tm_min  = pvt.utc.mm;
-        t.tm_sec  = pvt.utc.ss;
-        const time_t epoch = timegm(&t);
+    struct tm t{};
+    t.tm_year = pvt.date.year - 1900;
+    t.tm_mon  = pvt.date.month - 1;
+    t.tm_mday = pvt.date.day;
+    t.tm_hour = pvt.utc.hh;
+    t.tm_min  = pvt.utc.mm;
+    t.tm_sec  = pvt.utc.ss;
+    const time_t epoch = timegm(&t);
 
-        timeRef.time_ref.sec = static_cast<int32_t>(epoch);
-        timeRef.time_ref.nanosec = 0u;
-    }
-
+    timeRef.time_ref.sec = static_cast<int32_t>(epoch);
+    timeRef.time_ref.nanosec = 0u;
     timeRef.source = "gnss";
 
     return timeRef;

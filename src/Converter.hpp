@@ -6,6 +6,7 @@
 #define JIMMY_PAPUTTO_CONVERTERS_HPP_
 
 #include <memory>
+#include <optional>
 #include <string>
 
 #include <jimmypaputto/GnssHat.hpp>
@@ -34,7 +35,7 @@ public:
         const Navigation& navigation) const;
     geometry_msgs::msg::TwistWithCovarianceStamped toTwist(
         const PositionVelocityTime& pvt) const;
-    sensor_msgs::msg::TimeReference toTimeReference(
+    std::optional<sensor_msgs::msg::TimeReference> toTimeReference(
         const PositionVelocityTime& pvt) const;
 
 private:

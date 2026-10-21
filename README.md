@@ -132,7 +132,7 @@ All publishers use QoS depth 10. All messages carry `std_msgs/Header` with times
 | `/gnss/navigation` | `jp_gnss_hat/Navigation` | Always |
 | `/gps/fix` | `sensor_msgs/NavSatFix` | `publish_standard_topics: true` |
 | `/gps/vel` | `geometry_msgs/TwistWithCovarianceStamped` | `publish_standard_topics: true` |
-| `/gps/time_reference` | `sensor_msgs/TimeReference` | `publish_standard_topics: true` AND valid UTC |
+| `/gps/time_reference` | `sensor_msgs/TimeReference` | `publish_standard_topics: true` AND valid UTC time and date |
 | `/gnss/rtk/corrections` | `jp_gnss_hat/RtkCorrections` | RTK base |
 | `/rtcm` | `rtcm_msgs/Message` | `use_ntrip_rtcm: true` + RTK base |
 
@@ -273,12 +273,12 @@ When `publish_standard_topics: true`:
 
 | Source | Target | Notes |
 |--------|--------|-------|
-| PVT lat/lon/alt | `NavSatFix.latitude/longitude/altitude` | Altitude = MSL |
-| PVT horizontal/vertical accuracy (mm) | `NavSatFix.position_covariance` | Diagonal, σ² = (acc_mm / 1000)² |
+| PVT lat/lon/alt | `NavSatFix.latitude/longitude/altitude` | Altitude = height above the WGS84 ellipsoid (not MSL) |
+| PVT horizontal/vertical accuracy (m) | `NavSatFix.position_covariance` | Diagonal, σ² = acc_m² |
 | PVT fix_quality | `NavSatFix.status` | Invalid→NO_FIX, GPS/PPS/DR→FIX, DGNSS→SBAS_FIX, RTK→GBAS_FIX |
 | Satellites with `used_in_fix` | `NavSatFix.status.service` | GPS/Galileo/GLONASS/BeiDou flags |
 | PVT speed + heading | `TwistWithCovarianceStamped` | Decomposed to ENU: vx=speed×sin(heading), vy=speed×cos(heading) |
-| PVT UTC time/date | `TimeReference` | Published only when `utc_valid` is true |
+| PVT UTC time/date | `TimeReference` | Published only when both `utc_valid` and `date_valid` are true |
 
 ## Lifecycle
 

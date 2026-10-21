@@ -214,8 +214,8 @@ void GnssNode::sendNavigation(const Navigation& navigation)
         navSatFixPub_->publish(converter_->toNavSatFix(navigation));
         velPub_->publish(converter_->toTwist(navigation.pvt));
 
-        if (navigation.pvt.utc.valid)
-            timeRefPub_->publish(converter_->toTimeReference(navigation.pvt));
+        if (const auto timeRef = converter_->toTimeReference(navigation.pvt))
+            timeRefPub_->publish(*timeRef);
     }
 }
 

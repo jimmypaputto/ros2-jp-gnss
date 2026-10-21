@@ -46,8 +46,8 @@ protected:
         nav.pvt.speedAccuracy = 0.1f;
         nav.pvt.heading = 90.0f;
         nav.pvt.headingAccuracy = 1.0f;
-        nav.pvt.horizontalAccuracy = 1500.0f;  // mm
-        nav.pvt.verticalAccuracy = 2000.0f;    // mm
+        nav.pvt.horizontalAccuracy = 1.5f;  // m
+        nav.pvt.verticalAccuracy = 2.0f;    // m
         nav.pvt.visibleSatellites = 12;
         nav.pvt.utc = {.hh = 14, .mm = 30, .ss = 45,
                        .valid = true, .accuracy = 20};
@@ -216,9 +216,8 @@ TEST_F(ConverterTest, NavSatFixCovariance)
     const auto nav = makeNavigation();
     const auto fix = converter_->toNavSatFix(nav);
 
-    // horizontalAccuracy = 1500 mm → 1.5 m, variance = 2.25
+    // gnsshat reports accuracy in metres: variance = accuracy²
     const double hVar = 1.5 * 1.5;
-    // verticalAccuracy = 2000 mm → 2.0 m, variance = 4.0
     const double vVar = 2.0 * 2.0;
 
     EXPECT_DOUBLE_EQ(fix.position_covariance[0], hVar);
@@ -226,6 +225,21 @@ TEST_F(ConverterTest, NavSatFixCovariance)
     EXPECT_DOUBLE_EQ(fix.position_covariance[8], vVar);
     EXPECT_EQ(fix.position_covariance_type,
               sensor_msgs::msg::NavSatFix::COVARIANCE_TYPE_DIAGONAL_KNOWN);
+}
+
+TEST_F(ConverterTest, NavSatFixCovarianceIsSquareOfMetres)
+{
+    auto nav = makeNavigation();
+    nav.pvt.horizontalAccuracy = 0.014f;
+    nav.pvt.verticalAccuracy = 25.0f;
+    const auto fix = converter_->toNavSatFix(nav);
+
+    const double h = static_cast<double>(0.014f);
+    EXPECT_DOUBLE_EQ(fix.position_covariance[0], h * h);
+    EXPECT_DOUBLE_EQ(fix.position_covariance[4], h * h);
+    EXPECT_DOUBLE_EQ(fix.position_covariance[8], 625.0);
+    for (const auto i : {1, 2, 3, 5, 6, 7})
+        EXPECT_DOUBLE_EQ(fix.position_covariance[i], 0.0);
 }
 
 TEST_F(ConverterTest, NavSatFixStatusMapping)
@@ -302,10 +316,28 @@ TEST_F(ConverterTest, TimeReferenceValid)
     const auto nav = makeNavigation();
     const auto timeRef = converter_->toTimeReference(nav.pvt);
 
-    EXPECT_EQ(timeRef.header.frame_id, "gnss_frame");
-    // 2026-03-15 14:30:45 UTC — verify it produced a nonzero epoch
-    EXPECT_GT(timeRef.time_ref.sec, 0);
-    EXPECT_EQ(timeRef.source, "gnss");
+    ASSERT_TRUE(timeRef.has_value());
+    EXPECT_EQ(timeRef->header.frame_id, "gnss_frame");
+    // 2026-03-15 14:30:45 UTC
+    EXPECT_EQ(timeRef->time_ref.sec, 1773585045);
+    EXPECT_EQ(timeRef->time_ref.nanosec, 0u);
+    EXPECT_EQ(timeRef->source, "gnss");
+}
+
+TEST_F(ConverterTest, TimeReferenceSkippedWithoutValidDate)
+{
+    auto nav = makeNavigation();
+    nav.pvt.date.valid = false;
+
+    EXPECT_FALSE(converter_->toTimeReference(nav.pvt).has_value());
+}
+
+TEST_F(ConverterTest, TimeReferenceSkippedWithoutValidUtc)
+{
+    auto nav = makeNavigation();
+    nav.pvt.utc.valid = false;
+
+    EXPECT_FALSE(converter_->toTimeReference(nav.pvt).has_value());
 }
 
 
