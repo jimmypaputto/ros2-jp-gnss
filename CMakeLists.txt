@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.11)
 project(jp_gnss_hat)
 
+# gnsshat release fetched when no system install is found; bump here only.
+set(JP_GNSSHAT_GIT_TAG v1.2.0)
+string(REGEX REPLACE "^v" "" JP_GNSSHAT_MIN_VERSION "${JP_GNSSHAT_GIT_TAG}")
+
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
@@ -30,18 +34,36 @@ else()
 endif()
 
 # gnsshat — jimmypaputto/gnsshat driver (https://github.com/jimmypaputto/gnsshat)
-# Uses system-installed version if available, otherwise fetches from GitHub.
+# Uses system-installed version if available, otherwise fetches ${JP_GNSSHAT_GIT_TAG}
+# from GitHub.
 # System dependency: libgpiod-dev (sudo apt install libgpiod-dev)
 find_library(GNSSHAT_LIBRARY gnsshat)
 find_path(GNSSHAT_INCLUDE_DIR jimmypaputto/GnssHat.hpp)
 
 if(GNSSHAT_LIBRARY AND GNSSHAT_INCLUDE_DIR)
-    message(STATUS "Found system gnsshat: ${GNSSHAT_LIBRARY}")
+    set(_gnsshat_version "unknown")
+    set(_gnsshat_version_hpp "${GNSSHAT_INCLUDE_DIR}/jimmypaputto/Version.hpp")
+    if(EXISTS "${_gnsshat_version_hpp}")
+        file(STRINGS "${_gnsshat_version_hpp}" _gnsshat_version_line
+            REGEX "^#define GNSS_HAT_VERSION \"[^\"]+\"")
+        if(_gnsshat_version_line MATCHES "\"([^\"]+)\"")
+            set(_gnsshat_version "${CMAKE_MATCH_1}")
+        endif()
+    endif()
+    message(STATUS "Found system gnsshat ${_gnsshat_version}: ${GNSSHAT_LIBRARY}")
+    if(_gnsshat_version STREQUAL "unknown"
+            OR _gnsshat_version VERSION_LESS JP_GNSSHAT_MIN_VERSION)
+        message(WARNING
+            "System gnsshat version ${_gnsshat_version} is older than the supported "
+            "${JP_GNSSHAT_MIN_VERSION}. Update it (sudo make install in gnsshat) "
+            "or remove it to fetch ${JP_GNSSHAT_GIT_TAG} from GitHub.")
+    endif()
 else()
-    message(STATUS "System gnsshat not found — fetching from GitHub")
+    message(STATUS "System gnsshat not found — fetching ${JP_GNSSHAT_GIT_TAG} from GitHub")
     include(FetchContent)
     FetchContent_Declare(gnsshat
         GIT_REPOSITORY https://github.com/jimmypaputto/gnsshat.git
+        GIT_TAG ${JP_GNSSHAT_GIT_TAG}
         GIT_SHALLOW TRUE
     )
     FetchContent_GetProperties(gnsshat)

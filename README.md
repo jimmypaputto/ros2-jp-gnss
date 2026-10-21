@@ -1,6 +1,6 @@
 # ros2-jp-gnss
 
-ROS 2 package `jp_gnss_hat` — a Lifecycle Node wrapping the [jimmypaputto/GnssHat](https://github.com/jimmypaputto/GnssHat) driver library. Publishes full navigation data from Jimmy Paputto GNSS HATs on Raspberry Pi. Buy the HATs at [jimmypaputto.com](https://jimmypaputto.com).
+ROS 2 package `jp_gnss_hat` — a Lifecycle Node wrapping the [jimmypaputto/gnsshat](https://github.com/jimmypaputto/gnsshat) driver library. Publishes full navigation data from Jimmy Paputto GNSS HATs on Raspberry Pi. Buy the HATs at [jimmypaputto.com](https://jimmypaputto.com).
 
 ## Supported Hardware
 
@@ -46,7 +46,7 @@ colcon build --packages-select jp_gnss_hat
 source install/setup.bash
 ```
 
-The [GnssHat](https://github.com/jimmypaputto/GnssHat) library is fetched automatically via CMake `FetchContent` if not found system-wide.
+The [gnsshat](https://github.com/jimmypaputto/gnsshat) library is taken from the system if installed (e.g. `sudo make install` in gnsshat → `/usr/local`). Otherwise CMake `FetchContent` fetches the pinned release tag `v1.2.0` from GitHub. A system install older than that version produces a CMake warning.
 
 ## Quick Start
 
@@ -321,7 +321,9 @@ NEO-F9P only. Corrections flow over `/gnss/rtk/corrections` (`RtkCorrections` me
 
 - C++20, CMake ≥ 3.11
 - System dependency: `libgpiod-dev`
-- GnssHat: `find_library(GnssHat)` → fallback to `FetchContent` from GitHub
+- gnsshat: `find_library(gnsshat)` + `find_path(jimmypaputto/GnssHat.hpp)` → fallback to `FetchContent` of the tag in `JP_GNSSHAT_GIT_TAG` (currently `v1.2.0`) from GitHub
+  - the system install's version is read from `jimmypaputto/Version.hpp`; below `JP_GNSSHAT_GIT_TAG` (or with no `Version.hpp`) CMake prints a warning but still builds
+  - to move to a newer gnsshat release, change the single line `set(JP_GNSSHAT_GIT_TAG vX.Y.Z)` at the top of `CMakeLists.txt`. The same value sets the minimum version for the system install.
 - `rtcm_msgs`: `find_package(QUIET)` → if found, adds `-DJP_GNSS_NTRIP` and links
 
 ```sh
