@@ -147,6 +147,8 @@ if(BUILD_TESTING)
             rclcpp rclcpp_lifecycle std_msgs sensor_msgs geometry_msgs)
         target_link_libraries(${TARGET_NAME}
             gnsshat yaml-cpp "${cpp_typesupport_target}")
+        target_compile_definitions(${TARGET_NAME} PRIVATE
+            JP_GNSS_HAT_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
         if(GNSSHAT_FETCHED)
             target_include_directories(${TARGET_NAME} PRIVATE "${_gnsshat_inc}")
         endif()

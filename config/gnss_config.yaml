@@ -7,20 +7,23 @@
 #   - L1/L5 GNSS RTK HAT (u-blox NEO-F9P)
 #
 # The node auto-detects the connected HAT.
-# Sections that don't apply to your hardware are safely ignored.
+# Sections the connected HAT does not support are NOT ignored — they make
+# `configure` fail. Keep `geofencing` only on the L1 GNSS HAT and the RTK HAT,
+# and `rtk` only on the RTK HAT.
+# Unknown values (polarity, rtk mode, base type, ...) are rejected as well.
 # ============================================================================
 
 # --------------------------------------------------------------------------
 # Node identity — required when running multiple GNSS nodes in one network
 # --------------------------------------------------------------------------
-# When set, the ROS node name becomes "jp_gnss_hat_<node_id>" and all topics
-# and services are prefixed accordingly:
+# When set, the ROS node name becomes "jp_gnss_hat_<node_id>" and the custom
+# topics and services are prefixed accordingly:
 #   /gnss/<node_id>/navigation
-#   /gps/<node_id>/fix
 #   /gnss/<node_id>/get_config   etc.
 #
-# RTK corrections (/gnss/rtk/corrections) and NTRIP (/rtcm) remain
-# shared between base and rover — they are NOT prefixed.
+# Standard topics (/gps/fix, /gps/vel, /gps/time_reference), RTK corrections
+# (/gnss/rtk/corrections) and NTRIP (/rtcm) stay global — they are NOT
+# prefixed.
 #
 # Leave commented out (or empty) for single-node setups — the default
 # names (e.g. /gnss/navigation) are used unchanged.
@@ -57,12 +60,13 @@ publish_standard_topics: true
 #   10 Bike           11 Mower          12 Escooter
 dynamic_model: 2
 
-# Timepulse pin configuration
+# Timepulse pin configuration.
+# Remove the whole section to disable the timepulse pin.
 timepulse:
   active: true
   fixed_pulse:
     frequency: 10          # Hz (when GNSS fix is acquired)
-    pulse_width: 0.1      # duty cycle (0.0–1.0)
+    pulse_width: 0.1      # duty cycle, 0.0 <= x < 1.0
   # Uncomment to also pulse when there is no fix:
   # pulse_when_no_fix:
   #   frequency: 1
@@ -77,7 +81,7 @@ timepulse:
 #   confidence_level: 4   # 0=none, 1=68%, 2=95%, 3=99.7%, 4=99.99%, 5=99.9999%
 #   # Uncomment to enable PIO pin output:
 #   # pio_pin_polarity: low_means_inside   # or "low_means_outside"
-#   geofences:
+#   geofences:            # 1–4 entries
 #     - lat: 52.2297
 #       lon: 21.0122
 #       radius: 50.0
@@ -92,17 +96,17 @@ timepulse:
 # use_ntrip_rtcm: false
 
 # rtk:
-#   mode: rover            # "base" or "rover"
-#   base:
-#     type: survey_in     # "survey_in", "fixed_ecef" or "fixed_lla"
+#   mode: rover            # required: "base" or "rover"
+#   base:                  # required for "base", ignored for "rover"
+#     type: survey_in     # required: "survey_in", "fixed_ecef" or "fixed_lla"
 #     min_observation_time_s: 60
 #     required_accuracy_m: 2.0
-#     # For fixed_ecef:
+#     # For fixed_ecef (x_m, y_m, z_m required):
 #     # x_m: 3856242.0
 #     # y_m: 1456789.0
 #     # z_m: 5021456.0
 #     # position_accuracy_m: 0.01
-#     # For fixed_lla:
+#     # For fixed_lla (latitude_deg, longitude_deg, height_m required):
 #     # latitude_deg: 52.2297
 #     # longitude_deg: 21.0122
 #     # height_m: 120.0

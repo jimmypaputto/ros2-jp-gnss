@@ -71,6 +71,8 @@ ros2 launch jp_gnss_hat gnss.launch.py config_file:=/path/to/config.yaml
 
 Single YAML file. Default installed at `<pkg_share>/config/gnss_config.yaml`. See `config/examples/` for RTK base, RTK rover, geofencing configs.
 
+The file is validated on load: a malformed section, an unknown value (polarity, RTK mode, base type, ...) or a missing required key fails `configure` with an error naming the offending key. Sections the connected HAT does not support (`geofencing` on the TIME HAT, `rtk` on anything but the RTK HAT) fail `configure` too — they are not ignored.
+
 ```yaml
 node_id: ""                    # multi-instance: changes node name and topic prefix
 measurement_rate_hz: 1         # 1–25 Hz
@@ -79,11 +81,11 @@ publish_standard_topics: true  # publish /gps/fix, /gps/vel, /gps/time_reference
 use_ntrip_rtcm: false          # bridge to/from rtcm_msgs (requires rtcm_msgs)
 dynamic_model: 2               # see table below
 
-timepulse:
+timepulse:                     # optional — omit entire section to disable the pin
   active: true
   fixed_pulse:
     frequency: 1               # Hz
-    pulse_width: 0.1           # duty cycle 0.0–1.0
+    pulse_width: 0.1           # duty cycle, 0.0 <= x < 1.0
   # pulse_when_no_fix:         # optional — omit to disable pulse before fix
   #   frequency: 1
   #   pulse_width: 0.5
@@ -92,7 +94,7 @@ timepulse:
 geofencing:                    # optional — omit entire section to disable
   confidence_level: 3          # 0=none 1=68% 2=95% 3=99.7% 4=99.99% 5=99.9999%
   pio_pin_polarity: low_means_inside   # optional — "low_means_inside" or "low_means_outside"
-  geofences:                   # max 4 
+  geofences:                   # 1–4 entries
     - lat: 41.902205071091224
       lon: 12.4539203390548
       radius: 2005.0
@@ -101,13 +103,13 @@ geofencing:                    # optional — omit entire section to disable
       radius: 1810.0
 
 rtk:                           # optional — omit to disable
-  mode: base                   # "base" or "rover"
-  base:
-    type: survey_in            # "survey_in", "fixed_ecef", or "fixed_lla"
+  mode: base                   # required: "base" or "rover"
+  base:                        # required for "base", ignored for "rover"
+    type: survey_in            # required: "survey_in", "fixed_ecef", or "fixed_lla"
     min_observation_time_s: 120
     required_accuracy_m: 50.0
-    # fixed_ecef: x_m, y_m, z_m, position_accuracy_m
-    # fixed_lla: latitude_deg, longitude_deg, height_m, position_accuracy_m
+    # fixed_ecef: x_m, y_m, z_m (required), position_accuracy_m (default 0.01)
+    # fixed_lla: latitude_deg, longitude_deg, height_m (required), position_accuracy_m (default 0.01)
 ```
 
 ### Dynamic Model
@@ -162,7 +164,7 @@ Set `node_id` in YAML (e.g. `"rover"`). Custom topics and services get the ID in
 
 ### Runtime Reconfiguration
 
-`SetGnssConfig` triggers a full lifecycle cycle: deactivate → cleanup → configure (new config) → activate. On failure the node automatically rolls back to the previous working config.
+`SetGnssConfig` triggers a full lifecycle cycle: deactivate → cleanup → configure (new config) → activate. On failure the node automatically rolls back to the previous working config. A request with invalid enum values (`dynamic_model`, polarities, `rtk_mode`, `rtk_base_type`) or more than 4 geofences is rejected up front with `success: false` and the node keeps running unchanged.
 
 ```sh
 ros2 service call /gnss/get_config jp_gnss_hat/srv/GetGnssConfig

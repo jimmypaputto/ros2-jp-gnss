@@ -173,6 +173,215 @@ timepulse:
 }
 
 
+// --- validation ---
+
+static void expectLoadThrows(const std::string& yaml, const std::string& key)
+{
+    TmpFile file(yaml);
+    Config cfg;
+    try
+    {
+        cfg.loadFromYaml(file.path());
+        ADD_FAILURE() << "expected an error mentioning '" << key << "'";
+    }
+    catch (const std::runtime_error& e)
+    {
+        EXPECT_NE(std::string(e.what()).find(key), std::string::npos)
+            << "error does not mention '" << key << "': " << e.what();
+    }
+}
+
+TEST(ConfigValidation, MissingTimepulseDisablesPin)
+{
+    TmpFile file("measurement_rate_hz: 5\n");
+    Config cfg;
+    ASSERT_NO_THROW(cfg.loadFromYaml(file.path()));
+    EXPECT_FALSE(cfg.gnssConfig().timepulsePinConfig.active);
+}
+
+TEST(ConfigValidation, TimepulseSectionWithoutFixedPulseUsesDefaults)
+{
+    TmpFile file("timepulse:\n  polarity: falling\n");
+    Config cfg;
+    ASSERT_NO_THROW(cfg.loadFromYaml(file.path()));
+    const auto& tp = cfg.gnssConfig().timepulsePinConfig;
+    EXPECT_TRUE(tp.active);
+    EXPECT_EQ(tp.fixedPulse.frequency, 1u);
+    EXPECT_FLOAT_EQ(tp.fixedPulse.pulseWidth, 0.1f);
+    EXPECT_FALSE(tp.pulseWhenNoFix.has_value());
+    EXPECT_EQ(tp.polarity, ETimepulsePinPolarity::FallingEdgeAtTopOfSecond);
+}
+
+TEST(ConfigValidation, NullTimepulseSectionThrows)
+{
+    expectLoadThrows("timepulse:\n", "timepulse");
+}
+
+TEST(ConfigValidation, NonMapTopLevelThrows)
+{
+    TmpFile file("- just\n- a list\n");
+    Config cfg;
+    EXPECT_THROW(cfg.loadFromYaml(file.path()), std::runtime_error);
+}
+
+TEST(ConfigValidation, BadScalarNamesKey)
+{
+    expectLoadThrows("measurement_rate_hz: fast\n", "measurement_rate_hz");
+    expectLoadThrows(
+        "timepulse:\n  fixed_pulse:\n    frequency: often\n",
+        "timepulse.fixed_pulse.frequency");
+}
+
+TEST(ConfigValidation, UnknownTimepulsePolarityThrows)
+{
+    expectLoadThrows("timepulse:\n  polarity: up\n", "timepulse.polarity");
+}
+
+TEST(ConfigValidation, UnknownPioPinPolarityThrows)
+{
+    expectLoadThrows(R"(
+geofencing:
+  pio_pin_polarity: high_means_inside
+  geofences:
+    - {lat: 52.0, lon: 21.0, radius: 10.0}
+)", "geofencing.pio_pin_polarity");
+}
+
+TEST(ConfigValidation, FiveGeofencesThrow)
+{
+    expectLoadThrows(R"(
+geofencing:
+  confidence_level: 3
+  geofences:
+    - {lat: 52.0, lon: 21.0, radius: 10.0}
+    - {lat: 52.1, lon: 21.0, radius: 10.0}
+    - {lat: 52.2, lon: 21.0, radius: 10.0}
+    - {lat: 52.3, lon: 21.0, radius: 10.0}
+    - {lat: 52.4, lon: 21.0, radius: 10.0}
+)", "geofencing.geofences");
+}
+
+TEST(ConfigValidation, FourGeofencesLoad)
+{
+    TmpFile file(R"(
+geofencing:
+  geofences:
+    - {lat: 52.0, lon: 21.0, radius: 10.0}
+    - {lat: 52.1, lon: 21.0, radius: 10.0}
+    - {lat: 52.2, lon: 21.0, radius: 10.0}
+    - {lat: 52.3, lon: 21.0, radius: 10.0}
+)");
+    Config cfg;
+    ASSERT_NO_THROW(cfg.loadFromYaml(file.path()));
+    ASSERT_TRUE(cfg.gnssConfig().geofencing.has_value());
+    EXPECT_EQ(cfg.gnssConfig().geofencing->geofences.size(), 4u);
+}
+
+TEST(ConfigValidation, GeofenceMissingRadiusThrows)
+{
+    expectLoadThrows(R"(
+geofencing:
+  geofences:
+    - {lat: 52.0, lon: 21.0}
+)", "geofencing.geofences[0].radius");
+}
+
+TEST(ConfigValidation, RtkBaseWithoutBaseSectionThrows)
+{
+    expectLoadThrows("rtk:\n  mode: base\n", "rtk.base");
+}
+
+TEST(ConfigValidation, RtkUnknownBaseTypeThrows)
+{
+    expectLoadThrows(
+        "rtk:\n  mode: base\n  base:\n    type: fixed_utm\n",
+        "rtk.base.type");
+}
+
+TEST(ConfigValidation, RtkUnknownModeThrows)
+{
+    expectLoadThrows("rtk:\n  mode: moving_base\n", "rtk.mode");
+}
+
+TEST(ConfigValidation, FailedLoadKeepsPreviousConfig)
+{
+    TmpFile good("node_id: rover\n");
+    Config cfg;
+    cfg.loadFromYaml(good.path());
+
+    TmpFile bad("node_id: other\nrtk:\n  mode: base\n");
+    EXPECT_THROW(cfg.loadFromYaml(bad.path()), std::runtime_error);
+    EXPECT_EQ(cfg.nodeId(), "rover");
+    EXPECT_FALSE(cfg.gnssConfig().rtk.has_value());
+}
+
+TEST(ConfigValidation, MsgWithFiveGeofencesThrows)
+{
+    jp_gnss_hat::msg::GnssConfig msg{};
+    msg.geofencing_enabled = true;
+    msg.geofences.resize(5);
+    Config cfg;
+    EXPECT_THROW(cfg.fromMsg(msg), std::runtime_error);
+}
+
+TEST(ConfigValidation, MsgWithInvalidPolarityThrows)
+{
+    jp_gnss_hat::msg::GnssConfig msg{};
+    msg.timepulse_polarity = 2;
+    Config cfg;
+    EXPECT_THROW(cfg.fromMsg(msg), std::runtime_error);
+
+    msg.timepulse_polarity = 1;
+    msg.geofencing_enabled = true;
+    msg.geofences.resize(1);
+    msg.geofencing_has_pio_pin_polarity = true;
+    msg.geofencing_pio_pin_polarity = 7;
+    EXPECT_THROW(cfg.fromMsg(msg), std::runtime_error);
+}
+
+TEST(ConfigValidation, MsgWithInvalidRtkThrows)
+{
+    jp_gnss_hat::msg::GnssConfig msg{};
+    msg.timepulse_polarity = 1;
+    msg.rtk_enabled = true;
+    msg.rtk_mode = static_cast<uint8_t>(ERtkMode::Base);
+    msg.rtk_base_type = 3;
+    Config cfg;
+    EXPECT_THROW(cfg.fromMsg(msg), std::runtime_error);
+}
+
+
+// --- shipped configs ---
+
+TEST(ConfigShipped, NoTimepulseExampleDisablesPin)
+{
+    const fs::path path = fs::path(JP_GNSS_HAT_SOURCE_DIR) /
+        "config" / "examples" / "config_no_timepulse.yaml";
+    Config cfg;
+    ASSERT_NO_THROW(cfg.loadFromYaml(path.string()));
+    EXPECT_FALSE(cfg.gnssConfig().timepulsePinConfig.active);
+}
+
+TEST(ConfigShipped, AllConfigsLoad)
+{
+    const fs::path root = fs::path(JP_GNSS_HAT_SOURCE_DIR) / "config";
+    size_t loaded = 0;
+    for (const auto& dir : {root, root / "examples"})
+    {
+        for (const auto& entry : fs::directory_iterator(dir))
+        {
+            if (entry.path().extension() != ".yaml")
+                continue;
+            SCOPED_TRACE(entry.path().string());
+            Config cfg;
+            EXPECT_NO_THROW(cfg.loadFromYaml(entry.path().string()));
+            ++loaded;
+        }
+    }
+    EXPECT_GE(loaded, 6u);
+}
+
+
 // --- saveToYaml / loadFromYaml round-trip ---
 
 TEST(ConfigRoundTrip, SaveLoadMinimal)

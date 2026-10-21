@@ -5,6 +5,8 @@
 #include "GnssNode.hpp"
 #include "Topics.hpp"
 
+#include <exception>
+
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <lifecycle_msgs/msg/state.hpp>
 #include <lifecycle_msgs/msg/transition.hpp>
@@ -64,7 +66,16 @@ GnssNode::CallbackReturn GnssNode::on_configure(
         configPath_ = get_parameter("config_file").as_string();
         RCLCPP_INFO(get_logger(), "Loading config from: %s",
             configPath_.c_str());
-        config_.loadFromYaml(configPath_);
+        try
+        {
+            config_.loadFromYaml(configPath_);
+        }
+        catch (const std::exception& e)
+        {
+            RCLCPP_ERROR(get_logger(), "Failed to load config %s: %s",
+                configPath_.c_str(), e.what());
+            return CallbackReturn::FAILURE;
+        }
     }
 
     const auto& cfg = config_.gnssConfig();
@@ -254,7 +265,16 @@ void GnssNode::onSetGnssConfig(
     jp_gnss_hat::srv::SetGnssConfig::Response::SharedPtr response)
 {
     Config newConfig;
-    newConfig.fromMsg(request->config);
+    try
+    {
+        newConfig.fromMsg(request->config);
+    }
+    catch (const std::exception& e)
+    {
+        response->success = false;
+        response->message = e.what();
+        return;
+    }
     newConfig.nodeId(config_.nodeId());
 
     if (Config::getDynamicModelName(newConfig.gnssConfig().dynamicModel)

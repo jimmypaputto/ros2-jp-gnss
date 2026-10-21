@@ -1,3 +1,4 @@
+# No `timepulse` section: the timepulse pin is disabled.
 measurement_rate_hz: 5
 save_to_flash: false
 publish_standard_topics: true

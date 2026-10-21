@@ -3,6 +3,8 @@
  */
 
 #include <sstream>
+#include <stdexcept>
+#include <string>
 #include <variant>
 
 #include <gtest/gtest.h>
@@ -229,6 +231,99 @@ TEST(RtkYamlRoundTrip, Rover)
     const YAML::Node reloaded = YAML::Load(out.c_str());
     const auto restored = RtkBridge::fromYaml(reloaded["rtk"]);
     EXPECT_EQ(restored.mode, ERtkMode::Rover);
+}
+
+
+// --- validation ---
+
+TEST(RtkYamlValidation, MissingModeThrows)
+{
+    EXPECT_THROW(RtkBridge::fromYaml(YAML::Load("base: {type: survey_in}")),
+        std::runtime_error);
+}
+
+TEST(RtkYamlValidation, UnknownModeThrows)
+{
+    EXPECT_THROW(RtkBridge::fromYaml(YAML::Load("mode: Base")),
+        std::runtime_error);
+}
+
+TEST(RtkYamlValidation, BaseWithoutBaseSectionThrows)
+{
+    EXPECT_THROW(RtkBridge::fromYaml(YAML::Load("mode: base")),
+        std::runtime_error);
+    EXPECT_THROW(RtkBridge::fromYaml(YAML::Load("mode: base\nbase:\n")),
+        std::runtime_error);
+}
+
+TEST(RtkYamlValidation, BaseWithoutTypeThrows)
+{
+    EXPECT_THROW(RtkBridge::fromYaml(YAML::Load(
+        "mode: base\nbase: {min_observation_time_s: 60}")),
+        std::runtime_error);
+}
+
+TEST(RtkYamlValidation, UnknownBaseTypeThrows)
+{
+    EXPECT_THROW(RtkBridge::fromYaml(YAML::Load(
+        "mode: base\nbase: {type: fixed_utm}")),
+        std::runtime_error);
+}
+
+TEST(RtkYamlValidation, FixedEcefMissingCoordinateThrows)
+{
+    try
+    {
+        RtkBridge::fromYaml(YAML::Load(
+            "mode: base\nbase: {type: fixed_ecef, x_m: 1.0, y_m: 2.0}"));
+        FAIL() << "expected an error";
+    }
+    catch (const std::runtime_error& e)
+    {
+        EXPECT_NE(std::string(e.what()).find("rtk.base.z_m"),
+            std::string::npos) << e.what();
+    }
+}
+
+TEST(RtkYamlValidation, FixedLlaMissingHeightThrows)
+{
+    EXPECT_THROW(RtkBridge::fromYaml(YAML::Load(
+        "mode: base\n"
+        "base: {type: fixed_lla, latitude_deg: 52.0, longitude_deg: 21.0}")),
+        std::runtime_error);
+}
+
+TEST(RtkYamlValidation, SurveyInDefaults)
+{
+    const auto cfg = RtkBridge::fromYaml(YAML::Load(
+        "mode: base\nbase: {type: survey_in}"));
+    ASSERT_TRUE(cfg.base.has_value());
+    const auto& si = std::get<BaseConfig::SurveyIn>(cfg.base->mode);
+    EXPECT_EQ(si.minimumObservationTime_s, 60u);
+    EXPECT_DOUBLE_EQ(si.requiredPositionAccuracy_m, 2.0);
+}
+
+TEST(RtkYamlValidation, RoverIgnoresBaseSection)
+{
+    const auto cfg = RtkBridge::fromYaml(YAML::Load(
+        "mode: rover\nbase: {type: survey_in}"));
+    EXPECT_EQ(cfg.mode, ERtkMode::Rover);
+    EXPECT_FALSE(cfg.base.has_value());
+}
+
+TEST(RtkMsgValidation, UnknownModeThrows)
+{
+    jp_gnss_hat::msg::GnssConfig msg{};
+    msg.rtk_mode = 2;
+    EXPECT_THROW(RtkBridge::fromMsg(msg), std::runtime_error);
+}
+
+TEST(RtkMsgValidation, UnknownBaseTypeThrows)
+{
+    jp_gnss_hat::msg::GnssConfig msg{};
+    msg.rtk_mode = static_cast<uint8_t>(ERtkMode::Base);
+    msg.rtk_base_type = 3;
+    EXPECT_THROW(RtkBridge::fromMsg(msg), std::runtime_error);
 }
 
 }  // JimmyPaputto::test

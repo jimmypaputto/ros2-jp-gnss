@@ -4,10 +4,11 @@
 # Auto-transitions (configure → activate) are handled in Main.cpp
 # so the node works out of the box with both `ros2 run` and `ros2 launch`.
 #
-# For manual lifecycle control:
-#   ros2 lifecycle list /gnss_hat
-#   ros2 lifecycle set /gnss_hat configure
-#   ros2 lifecycle set /gnss_hat activate
+# For manual lifecycle control (node name is jp_gnss_hat, or
+# jp_gnss_hat_<node_id> when node_id is set):
+#   ros2 lifecycle list /jp_gnss_hat
+#   ros2 lifecycle set /jp_gnss_hat configure
+#   ros2 lifecycle set /jp_gnss_hat activate
 #
 # Multi-node RTK setup — launch two nodes with separate config files:
 #   ros2 launch jp_gnss_hat gnss.launch.py config_file:=/path/to/base.yaml

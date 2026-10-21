@@ -4,8 +4,10 @@
 
 #include "Config.hpp"
 #include "Rtk.hpp"
+#include "YamlUtils.hpp"
 
 #include <fstream>
+#include <optional>
 #include <stdexcept>
 
 #include <yaml-cpp/yaml.h>
@@ -14,21 +16,145 @@
 namespace JimmyPaputto
 {
 
+namespace
+{
+
+constexpr size_t kMaxGeofences = 4;
+
+TimepulsePinConfig::Pulse loadPulse(
+    const YAML::Node& parent, const std::string& key, const std::string& path)
+{
+    TimepulsePinConfig::Pulse pulse{.frequency = 1, .pulseWidth = 0.1f};
+    const auto node = yaml::optionalMap(parent, key, path);
+    if (!node)
+        return pulse;
+
+    pulse.frequency = yaml::value<uint32_t>(
+        *node, "frequency", path + ".frequency", pulse.frequency);
+    pulse.pulseWidth = yaml::value<float>(
+        *node, "pulse_width", path + ".pulse_width", pulse.pulseWidth);
+    return pulse;
+}
+
+// A missing section disables the timepulse; a present one is active unless
+// it says otherwise.
+TimepulsePinConfig loadTimepulse(const YAML::Node& root)
+{
+    TimepulsePinConfig tp{};
+    tp.fixedPulse = {.frequency = 1, .pulseWidth = 0.1f};
+    tp.polarity = ETimepulsePinPolarity::RisingEdgeAtTopOfSecond;
+
+    const auto node = yaml::optionalMap(root, "timepulse", "timepulse");
+    if (!node)
+    {
+        tp.active = false;
+        return tp;
+    }
+
+    tp.active = yaml::value<bool>(*node, "active", "timepulse.active", true);
+    tp.fixedPulse =
+        loadPulse(*node, "fixed_pulse", "timepulse.fixed_pulse");
+    if (yaml::optionalMap(*node, "pulse_when_no_fix",
+            "timepulse.pulse_when_no_fix"))
+    {
+        tp.pulseWhenNoFix = loadPulse(
+            *node, "pulse_when_no_fix", "timepulse.pulse_when_no_fix");
+    }
+
+    const auto polarity = yaml::value<std::string>(
+        *node, "polarity", "timepulse.polarity", "rising");
+    if (polarity == "rising")
+        tp.polarity = ETimepulsePinPolarity::RisingEdgeAtTopOfSecond;
+    else if (polarity == "falling")
+        tp.polarity = ETimepulsePinPolarity::FallingEdgeAtTopOfSecond;
+    else
+        yaml::fail("timepulse.polarity",
+            "expected \"rising\" or \"falling\", got \"" + polarity + "\"");
+
+    return tp;
+}
+
+std::optional<GnssConfig::Geofencing> loadGeofencing(const YAML::Node& root)
+{
+    const auto node = yaml::optionalMap(root, "geofencing", "geofencing");
+    if (!node)
+        return std::nullopt;
+
+    GnssConfig::Geofencing geo{};
+    geo.confidenceLevel = yaml::value<uint8_t>(
+        *node, "confidence_level", "geofencing.confidence_level", 0);
+
+    const auto polarity = yaml::optionalValue<std::string>(
+        *node, "pio_pin_polarity", "geofencing.pio_pin_polarity");
+    if (polarity)
+    {
+        if (*polarity == "low_means_inside")
+            geo.pioPinPolarity = EPioPinPolarity::LowMeansInside;
+        else if (*polarity == "low_means_outside")
+            geo.pioPinPolarity = EPioPinPolarity::LowMeansOutside;
+        else
+            yaml::fail("geofencing.pio_pin_polarity",
+                "expected \"low_means_inside\" or \"low_means_outside\", "
+                "got \"" + *polarity + "\"");
+    }
+
+    const YAML::Node fences = (*node)["geofences"];
+    if (!fences.IsDefined())
+        return geo;
+    if (!fences.IsSequence())
+        yaml::fail("geofencing.geofences", "expected a list");
+    if (fences.size() > kMaxGeofences)
+    {
+        yaml::fail("geofencing.geofences",
+            "at most " + std::to_string(kMaxGeofences) + " geofences are "
+            "supported, got " + std::to_string(fences.size()));
+    }
+
+    for (size_t i = 0; i < fences.size(); ++i)
+    {
+        const std::string path =
+            "geofencing.geofences[" + std::to_string(i) + "]";
+        if (!fences[i].IsMap())
+            yaml::fail(path, "expected a mapping with lat, lon and radius");
+
+        Geofence gf;
+        gf.lat    = yaml::requiredValue<float>(fences[i], "lat", path + ".lat");
+        gf.lon    = yaml::requiredValue<float>(fences[i], "lon", path + ".lon");
+        gf.radius = yaml::requiredValue<float>(
+            fences[i], "radius", path + ".radius");
+        geo.geofences.push_back(gf);
+    }
+
+    return geo;
+}
+
+}  // namespace
+
 void Config::loadFromYaml(const std::string& path)
 {
-    YAML::Node yaml = YAML::LoadFile(path);
+    const YAML::Node root = YAML::LoadFile(path);
+    if (!root.IsMap())
+    {
+        throw std::runtime_error(
+            "Invalid config file " + path + ": expected a YAML mapping");
+    }
 
-    nodeId_ = yaml["node_id"].as<std::string>("");
-    publishStandardTopics_ = yaml["publish_standard_topics"].as<bool>(true);
-    useNtripRtcm_ = yaml["use_ntrip_rtcm"].as<bool>(false);
+    const auto nodeId =
+        yaml::value<std::string>(root, "node_id", "node_id", "");
+    const auto publishStandardTopics = yaml::value<bool>(
+        root, "publish_standard_topics", "publish_standard_topics", true);
+    const auto useNtripRtcm =
+        yaml::value<bool>(root, "use_ntrip_rtcm", "use_ntrip_rtcm", false);
 
     GnssConfig config{};
 
-    config.measurementRate_Hz = yaml["measurement_rate_hz"].as<uint16_t>(1);
-    config.saveToFlash = yaml["save_to_flash"].as<bool>(false);
+    config.measurementRate_Hz = yaml::value<uint16_t>(
+        root, "measurement_rate_hz", "measurement_rate_hz", 1);
+    config.saveToFlash =
+        yaml::value<bool>(root, "save_to_flash", "save_to_flash", false);
 
     config.dynamicModel = static_cast<EDynamicModel>(
-        yaml["dynamic_model"].as<uint8_t>(0));
+        yaml::value<uint8_t>(root, "dynamic_model", "dynamic_model", 0));
     if (getDynamicModelName(config.dynamicModel) == "Unknown")
     {
         throw std::runtime_error(
@@ -36,63 +162,15 @@ void Config::loadFromYaml(const std::string& path)
             std::to_string(static_cast<int>(config.dynamicModel)));
     }
 
-    const auto tpNode = yaml["timepulse"];
-    config.timepulsePinConfig.active = tpNode["active"].as<bool>(true);
-    config.timepulsePinConfig.fixedPulse.frequency =
-        tpNode["fixed_pulse"]["frequency"].as<uint32_t>(1);
-    config.timepulsePinConfig.fixedPulse.pulseWidth =
-        tpNode["fixed_pulse"]["pulse_width"].as<float>(0.1f);
+    config.timepulsePinConfig = loadTimepulse(root);
+    config.geofencing = loadGeofencing(root);
 
-    if (tpNode["pulse_when_no_fix"])
-    {
-        TimepulsePinConfig::Pulse noFixPulse;
-        noFixPulse.frequency =
-            tpNode["pulse_when_no_fix"]["frequency"].as<uint32_t>(1);
-        noFixPulse.pulseWidth =
-            tpNode["pulse_when_no_fix"]["pulse_width"].as<float>(0.1f);
-        config.timepulsePinConfig.pulseWhenNoFix = noFixPulse;
-    }
+    if (const auto rtkNode = yaml::optionalMap(root, "rtk", "rtk"))
+        config.rtk = RtkBridge::fromYaml(*rtkNode);
 
-    const auto polarityStr = tpNode["polarity"].as<std::string>("rising");
-    config.timepulsePinConfig.polarity = (polarityStr == "falling")
-        ? ETimepulsePinPolarity::FallingEdgeAtTopOfSecond
-        : ETimepulsePinPolarity::RisingEdgeAtTopOfSecond;
-
-    const auto geoNode = yaml["geofencing"];
-    if (geoNode && geoNode.IsDefined())
-    {
-        GnssConfig::Geofencing geo{};
-        geo.confidenceLevel = geoNode["confidence_level"].as<uint8_t>(0);
-
-        if (geoNode["pio_pin_polarity"])
-        {
-            const auto polStr =
-                geoNode["pio_pin_polarity"].as<std::string>("low_means_inside");
-            geo.pioPinPolarity = (polStr == "low_means_outside")
-                ? EPioPinPolarity::LowMeansOutside
-                : EPioPinPolarity::LowMeansInside;
-        }
-
-        const auto fences = geoNode["geofences"];
-        if (fences && fences.IsSequence())
-        {
-            for (size_t i = 0; i < std::min(fences.size(), size_t{4}); ++i)
-            {
-                Geofence gf;
-                gf.lat    = fences[i]["lat"].as<float>();
-                gf.lon    = fences[i]["lon"].as<float>();
-                gf.radius = fences[i]["radius"].as<float>();
-                geo.geofences.push_back(gf);
-            }
-        }
-
-        config.geofencing = geo;
-    }
-
-    const auto rtkNode = yaml["rtk"];
-    if (rtkNode && rtkNode.IsDefined())
-        config.rtk = RtkBridge::fromYaml(rtkNode);
-
+    nodeId_ = nodeId;
+    publishStandardTopics_ = publishStandardTopics;
+    useNtripRtcm_ = useNtripRtcm;
     gnssConfig_ = config;
 }
 
@@ -247,16 +325,39 @@ void Config::fromMsg(const jp_gnss_hat::msg::GnssConfig& msg)
         noFix.pulseWidth = msg.timepulse_no_fix_pulse_width;
         config.timepulsePinConfig.pulseWhenNoFix = noFix;
     }
+    if (msg.timepulse_polarity > static_cast<uint8_t>(
+            ETimepulsePinPolarity::RisingEdgeAtTopOfSecond))
+    {
+        throw std::runtime_error("Invalid timepulse_polarity: " +
+            std::to_string(msg.timepulse_polarity));
+    }
     config.timepulsePinConfig.polarity =
         static_cast<ETimepulsePinPolarity>(msg.timepulse_polarity);
 
     if (msg.geofencing_enabled)
     {
+        if (msg.geofences.size() > kMaxGeofences)
+        {
+            throw std::runtime_error(
+                "At most " + std::to_string(kMaxGeofences) +
+                " geofences are supported, got " +
+                std::to_string(msg.geofences.size()));
+        }
+
         GnssConfig::Geofencing geo{};
         geo.confidenceLevel = msg.geofencing_confidence_level;
         if (msg.geofencing_has_pio_pin_polarity)
+        {
+            if (msg.geofencing_pio_pin_polarity > static_cast<uint8_t>(
+                    EPioPinPolarity::LowMeansOutside))
+            {
+                throw std::runtime_error(
+                    "Invalid geofencing_pio_pin_polarity: " +
+                    std::to_string(msg.geofencing_pio_pin_polarity));
+            }
             geo.pioPinPolarity =
                 static_cast<EPioPinPolarity>(msg.geofencing_pio_pin_polarity);
+        }
         for (const auto& f : msg.geofences)
         {
             Geofence gf;
