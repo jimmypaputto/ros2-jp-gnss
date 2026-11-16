@@ -128,6 +128,148 @@ std::optional<GnssConfig::Geofencing> loadGeofencing(const YAML::Node& root)
     return geo;
 }
 
+using FixMode = GnssConfig::NavigationFilters::FixMode;
+
+std::string fixModeName(const FixMode mode)
+{
+    switch (mode)
+    {
+        case FixMode::Only2D: return "2d";
+        case FixMode::Only3D: return "3d";
+        default:              return "auto";
+    }
+}
+
+// Ranges are checked by gnsshat in start(); here only the YAML types are.
+std::optional<GnssConfig::NavigationFilters> loadNavigationFilters(
+    const YAML::Node& root)
+{
+    const auto node =
+        yaml::optionalMap(root, "navigation_filters", "navigation_filters");
+    if (!node)
+        return std::nullopt;
+
+    const auto get = [&node]<typename T>(std::optional<T>& field,
+        const std::string& key)
+    {
+        field = yaml::optionalValue<T>(*node, key, "navigation_filters." + key);
+    };
+
+    GnssConfig::NavigationFilters f{};
+    get(f.minSvs, "min_svs");
+    get(f.maxSvs, "max_svs");
+    get(f.minCno_dBHz, "min_cno_dbhz");
+    get(f.minElev_deg, "min_elev_deg");
+    get(f.nCnoThrs, "n_cno_thrs");
+    get(f.cnoThrs_dBHz, "cno_thrs_dbhz");
+    get(f.pdopMask_x10, "pdop_mask_x10");
+    get(f.tdopMask_x10, "tdop_mask_x10");
+    get(f.pAccMask_m, "p_acc_mask_m");
+    get(f.tAccMask_m, "t_acc_mask_m");
+
+    const auto fixMode = yaml::optionalValue<std::string>(
+        *node, "fix_mode", "navigation_filters.fix_mode");
+    if (fixMode)
+    {
+        if (*fixMode == "2d")
+            f.fixMode = FixMode::Only2D;
+        else if (*fixMode == "3d")
+            f.fixMode = FixMode::Only3D;
+        else if (*fixMode == "auto")
+            f.fixMode = FixMode::Auto;
+        else
+            yaml::fail("navigation_filters.fix_mode",
+                "expected \"2d\", \"3d\" or \"auto\", got \"" + *fixMode + "\"");
+    }
+
+    return f;
+}
+
+void saveNavigationFilters(
+    YAML::Emitter& out, const GnssConfig::NavigationFilters& f)
+{
+    // Cast to int: yaml-cpp emits (u)int8_t as a character.
+    const auto put = [&out](const char* key, const auto& field)
+    {
+        if (field)
+            out << YAML::Key << key << YAML::Value << static_cast<int>(*field);
+    };
+
+    out << YAML::Key << "navigation_filters" << YAML::Value << YAML::BeginMap;
+    put("min_svs", f.minSvs);
+    put("max_svs", f.maxSvs);
+    put("min_cno_dbhz", f.minCno_dBHz);
+    put("min_elev_deg", f.minElev_deg);
+    put("n_cno_thrs", f.nCnoThrs);
+    put("cno_thrs_dbhz", f.cnoThrs_dBHz);
+    if (f.fixMode)
+        out << YAML::Key << "fix_mode" << YAML::Value << fixModeName(*f.fixMode);
+    put("pdop_mask_x10", f.pdopMask_x10);
+    put("tdop_mask_x10", f.tdopMask_x10);
+    put("p_acc_mask_m", f.pAccMask_m);
+    put("t_acc_mask_m", f.tAccMask_m);
+    out << YAML::EndMap;
+}
+
+template <typename T, typename M>
+void toMsgField(const std::optional<T>& field, bool& has, M& value)
+{
+    has = field.has_value();
+    if (field)
+        value = static_cast<M>(*field);
+}
+
+template <typename T, typename M>
+void fromMsgField(std::optional<T>& field, const bool has, const M& value)
+{
+    if (has)
+        field = static_cast<T>(value);
+}
+
+jp_gnss_hat::msg::NavigationFilters navigationFiltersToMsg(
+    const GnssConfig::NavigationFilters& f)
+{
+    jp_gnss_hat::msg::NavigationFilters m;
+    toMsgField(f.minSvs, m.has_min_svs, m.min_svs);
+    toMsgField(f.maxSvs, m.has_max_svs, m.max_svs);
+    toMsgField(f.minCno_dBHz, m.has_min_cno_dbhz, m.min_cno_dbhz);
+    toMsgField(f.minElev_deg, m.has_min_elev_deg, m.min_elev_deg);
+    toMsgField(f.nCnoThrs, m.has_n_cno_thrs, m.n_cno_thrs);
+    toMsgField(f.cnoThrs_dBHz, m.has_cno_thrs_dbhz, m.cno_thrs_dbhz);
+    toMsgField(f.fixMode, m.has_fix_mode, m.fix_mode);
+    toMsgField(f.pdopMask_x10, m.has_pdop_mask_x10, m.pdop_mask_x10);
+    toMsgField(f.tdopMask_x10, m.has_tdop_mask_x10, m.tdop_mask_x10);
+    toMsgField(f.pAccMask_m, m.has_p_acc_mask_m, m.p_acc_mask_m);
+    toMsgField(f.tAccMask_m, m.has_t_acc_mask_m, m.t_acc_mask_m);
+    return m;
+}
+
+// No has_* flag set means no filters, so clients unaware of this field keep
+// the receiver defaults.
+std::optional<GnssConfig::NavigationFilters> navigationFiltersFromMsg(
+    const jp_gnss_hat::msg::NavigationFilters& m)
+{
+    GnssConfig::NavigationFilters f{};
+    fromMsgField(f.minSvs, m.has_min_svs, m.min_svs);
+    fromMsgField(f.maxSvs, m.has_max_svs, m.max_svs);
+    fromMsgField(f.minCno_dBHz, m.has_min_cno_dbhz, m.min_cno_dbhz);
+    fromMsgField(f.minElev_deg, m.has_min_elev_deg, m.min_elev_deg);
+    fromMsgField(f.nCnoThrs, m.has_n_cno_thrs, m.n_cno_thrs);
+    fromMsgField(f.cnoThrs_dBHz, m.has_cno_thrs_dbhz, m.cno_thrs_dbhz);
+    fromMsgField(f.fixMode, m.has_fix_mode, m.fix_mode);
+    fromMsgField(f.pdopMask_x10, m.has_pdop_mask_x10, m.pdop_mask_x10);
+    fromMsgField(f.tdopMask_x10, m.has_tdop_mask_x10, m.tdop_mask_x10);
+    fromMsgField(f.pAccMask_m, m.has_p_acc_mask_m, m.p_acc_mask_m);
+    fromMsgField(f.tAccMask_m, m.has_t_acc_mask_m, m.t_acc_mask_m);
+
+    const bool any = f.minSvs || f.maxSvs || f.minCno_dBHz || f.minElev_deg
+        || f.nCnoThrs || f.cnoThrs_dBHz || f.fixMode || f.pdopMask_x10
+        || f.tdopMask_x10 || f.pAccMask_m || f.tAccMask_m;
+    if (!any)
+        return std::nullopt;
+    return f;
+}
+
 }  // namespace
 
 void Config::loadFromYaml(const std::string& path)
@@ -164,6 +306,7 @@ void Config::loadFromYaml(const std::string& path)
 
     config.timepulsePinConfig = loadTimepulse(root);
     config.geofencing = loadGeofencing(root);
+    config.navigationFilters = loadNavigationFilters(root);
 
     if (const auto rtkNode = yaml::optionalMap(root, "rtk", "rtk"))
         config.rtk = RtkBridge::fromYaml(*rtkNode);
@@ -246,6 +389,9 @@ void Config::saveToYaml(const std::string& path) const
         out << YAML::EndMap;
     }
 
+    if (gnssConfig_.navigationFilters)
+        saveNavigationFilters(out, *gnssConfig_.navigationFilters);
+
     if (gnssConfig_.rtk)
         RtkBridge::toYaml(out, *gnssConfig_.rtk);
 
@@ -304,6 +450,10 @@ jp_gnss_hat::msg::GnssConfig Config::toMsg() const
     msg.rtk_enabled = gnssConfig_.rtk.has_value();
     if (gnssConfig_.rtk)
         RtkBridge::toMsg(*gnssConfig_.rtk, msg);
+
+    if (gnssConfig_.navigationFilters)
+        msg.navigation_filters =
+            navigationFiltersToMsg(*gnssConfig_.navigationFilters);
 
     return msg;
 }
@@ -371,6 +521,9 @@ void Config::fromMsg(const jp_gnss_hat::msg::GnssConfig& msg)
 
     if (msg.rtk_enabled)
         config.rtk = RtkBridge::fromMsg(msg);
+
+    config.navigationFilters =
+        navigationFiltersFromMsg(msg.navigation_filters);
 
     publishStandardTopics_ = msg.publish_standard_topics;
     useNtripRtcm_ = msg.use_ntrip_rtcm;

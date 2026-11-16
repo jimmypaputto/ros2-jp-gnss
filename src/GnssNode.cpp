@@ -86,6 +86,7 @@ GnssNode::CallbackReturn GnssNode::on_configure(
         "  Dynamic Model:    %s (%d)\n"
         "  Timepulse:        %s\n"
         "  Geofencing:       %s\n"
+        "  Nav Filters:      %s\n"
         "  RTK:              %s\n"
         "  Save to Flash:    %s",
         std::string(hat_->name()).c_str(),
@@ -94,15 +95,21 @@ GnssNode::CallbackReturn GnssNode::on_configure(
         static_cast<int>(cfg.dynamicModel),
         cfg.timepulsePinConfig.active ? "Enabled" : "Disabled",
         cfg.geofencing.has_value() ? "Enabled" : "Disabled",
+        cfg.navigationFilters.has_value() ? "Enabled" : "Receiver defaults",
         cfg.rtk.has_value()
             ? (cfg.rtk->mode == ERtkMode::Base ? "Base" : "Rover")
             : "Disabled",
         cfg.saveToFlash ? "Yes" : "No"
     );
 
+    // gnsshat reports why start() failed only on stderr.
     if (!hat_->start(config_.gnssConfig()))
     {
-        RCLCPP_ERROR(get_logger(), "Failed to start GNSS HAT");
+        RCLCPP_ERROR(get_logger(),
+            "Failed to start GNSS HAT: gnsshat rejected the configuration or "
+            "the receiver did not accept it. The reason is printed by gnsshat "
+            "on stderr just above (e.g. \"[GnssConfig] Invalid navigation "
+            "filter ...\").");
         return CallbackReturn::FAILURE;
     }
 

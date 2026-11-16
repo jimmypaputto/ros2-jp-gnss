@@ -56,6 +56,13 @@ geofencing:
     - lat: 51.1079
       lon: 17.0385
       radius: 100.0
+navigation_filters:
+  min_svs: 5
+  min_cno_dbhz: 20
+  min_elev_deg: -5
+  fix_mode: 3d
+  pdop_mask_x10: 250
+  t_acc_mask_m: 300
 rtk:
   mode: base
   base:
@@ -84,6 +91,26 @@ private:
     static inline int counter_{0};
 };
 
+static void expectNavigationFiltersEq(
+    const std::optional<GnssConfig::NavigationFilters>& actual,
+    const std::optional<GnssConfig::NavigationFilters>& expected)
+{
+    ASSERT_EQ(actual.has_value(), expected.has_value());
+    if (!expected)
+        return;
+    EXPECT_EQ(actual->minSvs, expected->minSvs);
+    EXPECT_EQ(actual->maxSvs, expected->maxSvs);
+    EXPECT_EQ(actual->minCno_dBHz, expected->minCno_dBHz);
+    EXPECT_EQ(actual->minElev_deg, expected->minElev_deg);
+    EXPECT_EQ(actual->nCnoThrs, expected->nCnoThrs);
+    EXPECT_EQ(actual->cnoThrs_dBHz, expected->cnoThrs_dBHz);
+    EXPECT_EQ(actual->fixMode, expected->fixMode);
+    EXPECT_EQ(actual->pdopMask_x10, expected->pdopMask_x10);
+    EXPECT_EQ(actual->tdopMask_x10, expected->tdopMask_x10);
+    EXPECT_EQ(actual->pAccMask_m, expected->pAccMask_m);
+    EXPECT_EQ(actual->tAccMask_m, expected->tAccMask_m);
+}
+
 
 // --- loadFromYaml ---
 
@@ -107,6 +134,7 @@ TEST(ConfigLoad, MinimalYaml)
               ETimepulsePinPolarity::RisingEdgeAtTopOfSecond);
     EXPECT_FALSE(cfg.gnssConfig().geofencing.has_value());
     EXPECT_FALSE(cfg.gnssConfig().rtk.has_value());
+    EXPECT_FALSE(cfg.gnssConfig().navigationFilters.has_value());
 }
 
 TEST(ConfigLoad, FullYaml)
@@ -153,6 +181,22 @@ TEST(ConfigLoad, FullYaml)
         std::get<BaseConfig::SurveyIn>(cfg.gnssConfig().rtk->base->mode);
     EXPECT_EQ(si.minimumObservationTime_s, 120u);
     EXPECT_DOUBLE_EQ(si.requiredPositionAccuracy_m, 1.5);
+
+    // Navigation filters: unset keys stay unset
+    using FixMode = GnssConfig::NavigationFilters::FixMode;
+    ASSERT_TRUE(cfg.gnssConfig().navigationFilters.has_value());
+    const auto& nf = *cfg.gnssConfig().navigationFilters;
+    EXPECT_EQ(nf.minSvs, std::optional<uint8_t>(5));
+    EXPECT_FALSE(nf.maxSvs.has_value());
+    EXPECT_EQ(nf.minCno_dBHz, std::optional<uint8_t>(20));
+    EXPECT_EQ(nf.minElev_deg, std::optional<int8_t>(-5));
+    EXPECT_FALSE(nf.nCnoThrs.has_value());
+    EXPECT_FALSE(nf.cnoThrs_dBHz.has_value());
+    EXPECT_EQ(nf.fixMode, std::optional<FixMode>(FixMode::Only3D));
+    EXPECT_EQ(nf.pdopMask_x10, std::optional<uint16_t>(250));
+    EXPECT_FALSE(nf.tdopMask_x10.has_value());
+    EXPECT_FALSE(nf.pAccMask_m.has_value());
+    EXPECT_EQ(nf.tAccMask_m, std::optional<uint16_t>(300));
 }
 
 TEST(ConfigLoad, InvalidDynamicModelThrows)
@@ -301,6 +345,29 @@ TEST(ConfigValidation, RtkUnknownBaseTypeThrows)
 TEST(ConfigValidation, RtkUnknownModeThrows)
 {
     expectLoadThrows("rtk:\n  mode: moving_base\n", "rtk.mode");
+}
+
+TEST(ConfigValidation, NavigationFiltersBadValuesThrow)
+{
+    expectLoadThrows("navigation_filters:\n", "navigation_filters");
+    expectLoadThrows("navigation_filters:\n  fix_mode: 4d\n",
+        "navigation_filters.fix_mode");
+    expectLoadThrows("navigation_filters:\n  min_svs: 300\n",
+        "navigation_filters.min_svs");
+    expectLoadThrows("navigation_filters:\n  min_elev_deg: -200\n",
+        "navigation_filters.min_elev_deg");
+}
+
+// Ranges are gnsshat's job (checked in start()), not the YAML loader's.
+TEST(ConfigValidation, NavigationFiltersRangesLeftToGnsshat)
+{
+    TmpFile file("navigation_filters:\n  min_svs: 1\n  max_svs: 40\n");
+    Config cfg;
+    ASSERT_NO_THROW(cfg.loadFromYaml(file.path()));
+    ASSERT_TRUE(cfg.gnssConfig().navigationFilters.has_value());
+    EXPECT_EQ(cfg.gnssConfig().navigationFilters->minSvs,
+              std::optional<uint8_t>(1));
+    EXPECT_FALSE(checkNavigationFilters(cfg.gnssConfig().navigationFilters));
 }
 
 TEST(ConfigValidation, FailedLoadKeepsPreviousConfig)
@@ -482,6 +549,8 @@ TEST(ConfigRoundTrip, SaveLoadFull)
     EXPECT_EQ(rSi.minimumObservationTime_s, oSi.minimumObservationTime_s);
     EXPECT_DOUBLE_EQ(rSi.requiredPositionAccuracy_m,
                      oSi.requiredPositionAccuracy_m);
+
+    expectNavigationFiltersEq(r.navigationFilters, o.navigationFilters);
 }
 
 
@@ -522,6 +591,8 @@ TEST(ConfigMsgRoundTrip, FullConfig)
 
     ASSERT_EQ(r.rtk.has_value(), o.rtk.has_value());
     EXPECT_EQ(r.rtk->mode, o.rtk->mode);
+
+    expectNavigationFiltersEq(r.navigationFilters, o.navigationFilters);
 }
 
 TEST(ConfigMsgRoundTrip, MinimalConfig)
@@ -539,6 +610,7 @@ TEST(ConfigMsgRoundTrip, MinimalConfig)
               original.gnssConfig().measurementRate_Hz);
     EXPECT_FALSE(restored.gnssConfig().geofencing.has_value());
     EXPECT_FALSE(restored.gnssConfig().rtk.has_value());
+    EXPECT_FALSE(restored.gnssConfig().navigationFilters.has_value());
 }
 
 

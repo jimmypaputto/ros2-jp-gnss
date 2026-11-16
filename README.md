@@ -102,6 +102,19 @@ geofencing:                    # optional — omit entire section to disable
       lon: 20.311759615806704
       radius: 1810.0
 
+navigation_filters:            # optional — every key optional; omitted keys keep the receiver default
+  min_svs: 4                   # 3–32 satellites
+  max_svs: 32                  # 3–32, >= min_svs
+  min_cno_dbhz: 15             # 0–63 dBHz, ignore weaker satellites
+  min_elev_deg: 10             # -90–90 deg, ignore satellites below this elevation
+  n_cno_thrs: 0                # satellites required above cno_thrs_dbhz for a fix
+  cno_thrs_dbhz: 0             # 0–63 dBHz
+  fix_mode: auto               # "2d", "3d" or "auto"
+  pdop_mask_x10: 250           # PDOP mask in 0.1 units (25.0)
+  tdop_mask_x10: 250           # TDOP mask in 0.1 units
+  p_acc_mask_m: 100            # position accuracy mask [m]
+  t_acc_mask_m: 350            # time accuracy mask [m]
+
 rtk:                           # optional — omit to disable
   mode: base                   # required: "base" or "rover"
   base:                        # required for "base", ignored for "rover"
@@ -111,6 +124,10 @@ rtk:                           # optional — omit to disable
     # fixed_ecef: x_m, y_m, z_m (required), position_accuracy_m (default 0.01)
     # fixed_lla: latitude_deg, longitude_deg, height_m (required), position_accuracy_m (default 0.01)
 ```
+
+### Navigation Filters
+
+`navigation_filters` maps to `GnssConfig::navigationFilters` in gnsshat (UBX CFG-NAVSPG) and works on every HAT. The keys match the `navigation_filters` dict of the gnsshat Python API. The YAML loader checks only types (e.g. `min_svs: 300` does not fit `uint8`); value ranges are validated by gnsshat when the HAT starts, so an out-of-range filter fails `configure` with `Failed to start GNSS HAT` in the node log and the exact reason (`[GnssConfig] Invalid navigation filter ...`) on stderr.
 
 ### Dynamic Model
 
@@ -267,7 +284,9 @@ uint8[] data
 
 ### jp_gnss_hat/GnssConfig
 
-Flat message used by `GetGnssConfig` / `SetGnssConfig` services. Contains all config fields including timepulse, geofencing (with `Geofence[]` array), and RTK parameters. See `msg/GnssConfig.msg` for the full definition.
+Flat message used by `GetGnssConfig` / `SetGnssConfig` services. Contains all config fields including timepulse, geofencing (with `Geofence[]` array), RTK parameters and `navigation_filters` (`NavigationFilters`). See `msg/GnssConfig.msg` for the full definition.
+
+`NavigationFilters` pairs every filter with a `has_<field>` flag (e.g. `has_min_svs` + `min_svs`); only fields with the flag set are applied, `fix_mode` is 1=2D, 2=3D, 3=Auto. A `SetGnssConfig` request with no flag set — including one from a client that does not know this field — runs with the receiver defaults, i.e. it clears filters loaded from YAML.
 
 ## Standard Topic Mapping
 

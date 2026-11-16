@@ -85,6 +85,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
     "msg/Navigation.msg"
     "msg/Rtcm3Frame.msg"
     "msg/RtkCorrections.msg"
+    "msg/NavigationFilters.msg"
     "msg/GnssConfig.msg"
     "srv/GetGeofencingCfg.srv"
     "srv/GetGnssConfig.srv"

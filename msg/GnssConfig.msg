@@ -36,3 +36,6 @@ float64 rtk_lla_latitude_deg
 float64 rtk_lla_longitude_deg
 float64 rtk_lla_height_m
 float64 rtk_position_accuracy_m
+
+# Navigation filters (all has_* false = receiver defaults)
+jp_gnss_hat/NavigationFilters navigation_filters
