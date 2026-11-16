@@ -100,7 +100,8 @@ jp_gnss_hat::msg::RfBlock Converter::toRfBlock(const RfBlock& rfBlock)
 {
     jp_gnss_hat::msg::RfBlock msg;
 
-    msg.band           = static_cast<uint8_t>(rfBlock.id);
+    msg.band           = rfBlock.id;
+    msg.gnss_band      = static_cast<uint8_t>(rfBlock.gnssBand);
     msg.jamming_state  = static_cast<uint8_t>(rfBlock.jammingState);
     msg.antenna_status = static_cast<uint8_t>(rfBlock.antennaStatus);
     msg.antenna_power  = static_cast<uint8_t>(rfBlock.antennaPower);

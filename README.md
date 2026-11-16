@@ -248,7 +248,8 @@ All `float32`: `geometric`, `position`, `time`, `vertical`, `horizontal`, `north
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `band` | `uint8` | 0=L1, 1=L2/L5 |
+| `band` | `uint8` | RF block index: 0=first, 1=second (kept for compatibility — use `gnss_band` for the band) |
+| `gnss_band` | `uint8` | 0=Unknown, 1=L1, 2=L2, 3=L3, 4=L5, 241=L2orL5 (`EGnssBand`) |
 | `jamming_state` | `uint8` | 0=Unknown, 1=OK, 2=Warning, 3=Critical |
 | `antenna_status` | `uint8` | 0=Init, 1=DontKnow, 2=Ok, 3=Short, 4=Open |
 | `antenna_power` | `uint8` | 0=Off, 1=On, 2=DontKnow |

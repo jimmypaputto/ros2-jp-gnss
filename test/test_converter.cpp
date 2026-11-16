@@ -70,7 +70,8 @@ protected:
         nav.geofencing.nav.geofencesStatus[0] = EGeofenceStatus::Inside;
 
         RfBlock rf{};
-        rf.id = static_cast<uint8_t>(EGnssBand::L1);
+        rf.id = 1;
+        rf.gnssBand = EGnssBand::L2orL5;
         rf.jammingState = EJammingState::Ok_NoSignificantJamming;
         rf.antennaStatus = EAntennaStatus::Ok;
         rf.antennaPower = EAntennaPower::On;
@@ -175,8 +176,9 @@ TEST_F(ConverterTest, NavigationRfBlockFields)
     const auto msg = converter_->toNavigation(nav);
 
     ASSERT_EQ(msg.rf_blocks.size(), 1u);
-    EXPECT_EQ(msg.rf_blocks[0].band,
-              static_cast<uint8_t>(EGnssBand::L1));
+    EXPECT_EQ(msg.rf_blocks[0].band, 1);
+    EXPECT_EQ(msg.rf_blocks[0].gnss_band,
+              static_cast<uint8_t>(EGnssBand::L2orL5));
     EXPECT_EQ(msg.rf_blocks[0].jamming_state,
               static_cast<uint8_t>(EJammingState::Ok_NoSignificantJamming));
     EXPECT_EQ(msg.rf_blocks[0].noise_per_ms, 100);
