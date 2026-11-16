@@ -102,8 +102,19 @@ GnssNode::CallbackReturn GnssNode::on_configure(
         cfg.saveToFlash ? "Yes" : "No"
     );
 
-    // gnsshat reports why start() failed only on stderr.
-    if (!hat_->start(config_.gnssConfig()))
+    // gnsshat reports why start() failed only on stderr, and some failures
+    // (e.g. an unsupported config key) surface as exceptions instead.
+    bool started = false;
+    try
+    {
+        started = hat_->start(config_.gnssConfig());
+    }
+    catch (const std::exception& e)
+    {
+        RCLCPP_ERROR(get_logger(), "Failed to start GNSS HAT: %s", e.what());
+        return CallbackReturn::FAILURE;
+    }
+    if (!started)
     {
         RCLCPP_ERROR(get_logger(),
             "Failed to start GNSS HAT: gnsshat rejected the configuration or "

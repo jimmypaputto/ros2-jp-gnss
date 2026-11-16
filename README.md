@@ -130,6 +130,8 @@ rtk:                           # optional — omit to disable
 
 `navigation_filters` maps to `GnssConfig::navigationFilters` in gnsshat (UBX CFG-NAVSPG) and works on every HAT. The keys match the `navigation_filters` dict of the gnsshat Python API. The YAML loader checks only types (e.g. `min_svs: 300` does not fit `uint8`); value ranges are validated by gnsshat when the HAT starts, so an out-of-range filter fails `configure` with `Failed to start GNSS HAT` in the node log and the exact reason (`[GnssConfig] Invalid navigation filter ...`) on stderr.
 
+> **Known gnsshat issue (v1.2.0):** `fix_mode`, `pdop_mask_x10`, `tdop_mask_x10`, `p_acc_mask_m` and `t_acc_mask_m` make `configure` fail with `Unknown configuration key size for key: 0x...` — gnsshat lacks their sizes in its UBX-CFG-VALGET key table. The `min_*`, `max_svs`, `n_cno_thrs` and `cno_thrs_dbhz` filters work.
+
 ### Dynamic Model
 
 | Value | Model | Value | Model |
