@@ -118,6 +118,7 @@ timepulse:
 #     type: survey_in     # required: "survey_in", "fixed_ecef" or "fixed_lla"
 #     min_observation_time_s: 60
 #     required_accuracy_m: 2.0
+#     corrections: full   # RTCM3 set to publish: "full" (MSM7, default) or "tiny" (MSM4)
 #     # For fixed_ecef (x_m, y_m, z_m required):
 #     # x_m: 3856242.0
 #     # y_m: 1456789.0

@@ -35,7 +35,8 @@ RtkBridge::~RtkBridge()
 bool RtkBridge::initialize(const GnssConfig& config, IRtk* rtk,
     [[maybe_unused]] bool useNtripRtcm,
     const std::string& correctionsTopic,
-    [[maybe_unused]] const std::string& ntripTopic)
+    [[maybe_unused]] const std::string& ntripTopic,
+    const ERtkCorrections corrections)
 {
     if (!rtk)
     {
@@ -54,10 +55,12 @@ bool RtkBridge::initialize(const GnssConfig& config, IRtk* rtk,
     if (config.rtk->mode == ERtkMode::Base && rtk->base())
     {
         base_ = rtk->base();
+        corrections_ = corrections;
         pub_ = node_.create_publisher<jp_gnss_hat::msg::RtkCorrections>(
             correctionsTopic, 10);
         RCLCPP_INFO(node_.get_logger(),
-            "RTK Base mode - publishing corrections");
+            "RTK Base mode - publishing %s corrections",
+            correctionsName(corrections_));
 
 #ifdef JP_GNSS_NTRIP
         if (useNtripRtcm)
@@ -101,7 +104,9 @@ void RtkBridge::pollAndPublish()
     if (!base_)
         return;
 
-    const auto frames = base_->getFullCorrections();
+    const auto frames = corrections_ == ERtkCorrections::Tiny
+        ? base_->getTinyCorrections()
+        : base_->getFullCorrections();
 
     jp_gnss_hat::msg::RtkCorrections msg;
     msg.header.stamp = node_.now();
@@ -221,7 +226,30 @@ RtkConfig RtkBridge::fromYaml(const YAML::Node& rtkNode)
     return cfg;
 }
 
-void RtkBridge::toYaml(YAML::Emitter& out, const RtkConfig& cfg)
+ERtkCorrections RtkBridge::correctionsFromYaml(const YAML::Node& rtkNode)
+{
+    // Like the rest of the base section, ignored by a rover.
+    const YAML::Node base = rtkNode["base"];
+    if (rtkNode["mode"].as<std::string>("") != "base" || !base.IsMap())
+        return ERtkCorrections::Full;
+
+    const auto set = yaml::value<std::string>(
+        base, "corrections", "rtk.base.corrections", "full");
+    if (set == "full")
+        return ERtkCorrections::Full;
+    if (set == "tiny")
+        return ERtkCorrections::Tiny;
+    yaml::fail("rtk.base.corrections",
+        "expected \"full\" or \"tiny\", got \"" + set + "\"");
+}
+
+const char* RtkBridge::correctionsName(const ERtkCorrections corrections)
+{
+    return corrections == ERtkCorrections::Tiny ? "tiny" : "full";
+}
+
+void RtkBridge::toYaml(YAML::Emitter& out, const RtkConfig& cfg,
+    const ERtkCorrections corrections)
 {
     out << YAML::Key << "rtk" << YAML::Value << YAML::BeginMap;
     out << YAML::Key << "mode" << YAML::Value
@@ -269,6 +297,8 @@ void RtkBridge::toYaml(YAML::Emitter& out, const RtkConfig& cfg)
             out << YAML::Key << "position_accuracy_m"
                 << YAML::Value << fp.positionAccuracy_m;
         }
+        out << YAML::Key << "corrections"
+            << YAML::Value << correctionsName(corrections);
         out << YAML::EndMap;
     }
 
@@ -368,6 +398,18 @@ RtkConfig RtkBridge::fromMsg(const jp_gnss_hat::msg::GnssConfig& msg)
     }
 
     return cfg;
+}
+
+ERtkCorrections RtkBridge::correctionsFromMsg(
+    const jp_gnss_hat::msg::GnssConfig& msg)
+{
+    if (msg.rtk_corrections > static_cast<uint8_t>(ERtkCorrections::Tiny))
+    {
+        throw std::runtime_error(
+            "Invalid rtk_corrections: " + std::to_string(msg.rtk_corrections) +
+            " (0=full, 1=tiny)");
+    }
+    return static_cast<ERtkCorrections>(msg.rtk_corrections);
 }
 
 #ifdef JP_GNSS_NTRIP

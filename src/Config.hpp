@@ -9,6 +9,8 @@
 
 #include <jimmypaputto/GnssHat.hpp>
 
+#include "Rtk.hpp"
+
 #include <jp_gnss_hat/msg/gnss_config.hpp>
 #include <jp_gnss_hat/srv/get_geofencing_cfg.hpp>
 
@@ -41,6 +43,9 @@ public:
     bool useNtripRtcm() const { return useNtripRtcm_; }
     void useNtripRtcm(const bool value) { useNtripRtcm_ = value; }
 
+    ERtkCorrections rtkCorrections() const { return rtkCorrections_; }
+    void rtkCorrections(const ERtkCorrections value) { rtkCorrections_ = value; }
+
     const std::string& nodeId() const { return nodeId_; }
     void nodeId(const std::string& value) { nodeId_ = value; }
 
@@ -48,6 +53,7 @@ private:
     GnssConfig gnssConfig_{};
     bool publishStandardTopics_{true};
     bool useNtripRtcm_{false};
+    ERtkCorrections rtkCorrections_{ERtkCorrections::Full};
     std::string nodeId_;
 };
 

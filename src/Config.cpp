@@ -308,12 +308,17 @@ void Config::loadFromYaml(const std::string& path)
     config.geofencing = loadGeofencing(root);
     config.navigationFilters = loadNavigationFilters(root);
 
+    auto rtkCorrections = ERtkCorrections::Full;
     if (const auto rtkNode = yaml::optionalMap(root, "rtk", "rtk"))
+    {
         config.rtk = RtkBridge::fromYaml(*rtkNode);
+        rtkCorrections = RtkBridge::correctionsFromYaml(*rtkNode);
+    }
 
     nodeId_ = nodeId;
     publishStandardTopics_ = publishStandardTopics;
     useNtripRtcm_ = useNtripRtcm;
+    rtkCorrections_ = rtkCorrections;
     gnssConfig_ = config;
 }
 
@@ -393,7 +398,7 @@ void Config::saveToYaml(const std::string& path) const
         saveNavigationFilters(out, *gnssConfig_.navigationFilters);
 
     if (gnssConfig_.rtk)
-        RtkBridge::toYaml(out, *gnssConfig_.rtk);
+        RtkBridge::toYaml(out, *gnssConfig_.rtk, rtkCorrections_);
 
     out << YAML::EndMap;
 
@@ -450,6 +455,7 @@ jp_gnss_hat::msg::GnssConfig Config::toMsg() const
     msg.rtk_enabled = gnssConfig_.rtk.has_value();
     if (gnssConfig_.rtk)
         RtkBridge::toMsg(*gnssConfig_.rtk, msg);
+    msg.rtk_corrections = static_cast<uint8_t>(rtkCorrections_);
 
     if (gnssConfig_.navigationFilters)
         msg.navigation_filters =
@@ -521,12 +527,14 @@ void Config::fromMsg(const jp_gnss_hat::msg::GnssConfig& msg)
 
     if (msg.rtk_enabled)
         config.rtk = RtkBridge::fromMsg(msg);
+    const auto rtkCorrections = RtkBridge::correctionsFromMsg(msg);
 
     config.navigationFilters =
         navigationFiltersFromMsg(msg.navigation_filters);
 
     publishStandardTopics_ = msg.publish_standard_topics;
     useNtripRtcm_ = msg.use_ntrip_rtcm;
+    rtkCorrections_ = rtkCorrections;
     gnssConfig_ = config;
 }
 

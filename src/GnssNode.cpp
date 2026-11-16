@@ -139,7 +139,8 @@ GnssNode::CallbackReturn GnssNode::on_configure(
             hat_->rtk(),
             config_.useNtripRtcm(),
             topics_.rtkCorrections,
-            topics_.ntrip
+            topics_.ntrip,
+            config_.rtkCorrections()
         );
         if (!rtkInitialized)
             return CallbackReturn::FAILURE;

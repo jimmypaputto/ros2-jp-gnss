@@ -232,6 +232,22 @@ TEST(RtkYamlRoundTrip, Rover)
     const auto restored = RtkBridge::fromYaml(reloaded["rtk"]);
     EXPECT_EQ(restored.mode, ERtkMode::Rover);
 }
+TEST(RtkYamlRoundTrip, BaseTinyCorrections)
+{
+    const YAML::Node node = YAML::Load(
+        "mode: base\nbase: {type: survey_in, corrections: tiny}");
+    const auto cfg = RtkBridge::fromYaml(node);
+    ASSERT_EQ(RtkBridge::correctionsFromYaml(node), ERtkCorrections::Tiny);
+
+    YAML::Emitter out;
+    out << YAML::BeginMap;
+    RtkBridge::toYaml(out, cfg, ERtkCorrections::Tiny);
+    out << YAML::EndMap;
+
+    const YAML::Node reloaded = YAML::Load(out.c_str());
+    EXPECT_EQ(RtkBridge::correctionsFromYaml(reloaded["rtk"]),
+              ERtkCorrections::Tiny);
+}
 
 
 // --- validation ---
@@ -309,6 +325,37 @@ TEST(RtkYamlValidation, RoverIgnoresBaseSection)
         "mode: rover\nbase: {type: survey_in}"));
     EXPECT_EQ(cfg.mode, ERtkMode::Rover);
     EXPECT_FALSE(cfg.base.has_value());
+}
+
+TEST(RtkYamlValidation, CorrectionsDefaultToFull)
+{
+    EXPECT_EQ(RtkBridge::correctionsFromYaml(YAML::Load(
+        "mode: base\nbase: {type: survey_in}")), ERtkCorrections::Full);
+    EXPECT_EQ(RtkBridge::correctionsFromYaml(YAML::Load(
+        "mode: rover\nbase: {type: survey_in, corrections: tiny}")),
+        ERtkCorrections::Full);
+}
+
+TEST(RtkYamlValidation, UnknownCorrectionsThrows)
+{
+    try
+    {
+        RtkBridge::correctionsFromYaml(YAML::Load(
+            "mode: base\nbase: {type: survey_in, corrections: msm5}"));
+        FAIL() << "expected an error";
+    }
+    catch (const std::runtime_error& e)
+    {
+        EXPECT_NE(std::string(e.what()).find("rtk.base.corrections"),
+            std::string::npos) << e.what();
+    }
+}
+
+TEST(RtkMsgValidation, UnknownCorrectionsThrows)
+{
+    jp_gnss_hat::msg::GnssConfig msg{};
+    msg.rtk_corrections = 2;
+    EXPECT_THROW(RtkBridge::correctionsFromMsg(msg), std::runtime_error);
 }
 
 TEST(RtkMsgValidation, UnknownModeThrows)

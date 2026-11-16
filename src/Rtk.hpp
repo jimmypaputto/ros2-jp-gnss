@@ -24,6 +24,14 @@
 namespace JimmyPaputto
 {
 
+// RTCM3 set published by a base: Full = MSM7 (1005, 1077, 1087, 1097, 1127,
+// 1230), Tiny = MSM4 (1005, 1074, 1084, 1094, 1124, 1230).
+enum class ERtkCorrections : uint8_t
+{
+    Full = 0,
+    Tiny = 1
+};
+
 class RtkBridge
 {
 public:
@@ -33,21 +41,28 @@ public:
     bool initialize(const GnssConfig& config, IRtk* rtk,
         [[maybe_unused]] bool useNtripRtcm,
         const std::string& correctionsTopic,
-        [[maybe_unused]] const std::string& ntripTopic);
+        [[maybe_unused]] const std::string& ntripTopic,
+        ERtkCorrections corrections);
     void pollAndPublish();
     void onCorrections(const jp_gnss_hat::msg::RtkCorrections::SharedPtr msg);
 
     static RtkConfig fromYaml(const YAML::Node& rtkNode);
-    static void toYaml(YAML::Emitter& out, const RtkConfig& cfg);
+    static ERtkCorrections correctionsFromYaml(const YAML::Node& rtkNode);
+    static void toYaml(YAML::Emitter& out, const RtkConfig& cfg,
+        ERtkCorrections corrections = ERtkCorrections::Full);
 
     static void toMsg(const RtkConfig& cfg, jp_gnss_hat::msg::GnssConfig& msg);
     static RtkConfig fromMsg(const jp_gnss_hat::msg::GnssConfig& msg);
+    static ERtkCorrections correctionsFromMsg(
+        const jp_gnss_hat::msg::GnssConfig& msg);
+    static const char* correctionsName(ERtkCorrections corrections);
 
 private:
     rclcpp_lifecycle::LifecycleNode& node_;
     std::string frameId_;
     IBase* base_{nullptr};
     IRover* rover_{nullptr};
+    ERtkCorrections corrections_{ERtkCorrections::Full};
     rclcpp_lifecycle::LifecyclePublisher<
         jp_gnss_hat::msg::RtkCorrections>::SharedPtr pub_;
     rclcpp::Subscription<jp_gnss_hat::msg::RtkCorrections>::SharedPtr sub_;

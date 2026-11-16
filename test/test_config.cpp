@@ -69,6 +69,7 @@ rtk:
     type: survey_in
     min_observation_time_s: 120
     required_accuracy_m: 1.5
+    corrections: tiny
 )";
 
 class TmpFile
@@ -181,6 +182,7 @@ TEST(ConfigLoad, FullYaml)
         std::get<BaseConfig::SurveyIn>(cfg.gnssConfig().rtk->base->mode);
     EXPECT_EQ(si.minimumObservationTime_s, 120u);
     EXPECT_DOUBLE_EQ(si.requiredPositionAccuracy_m, 1.5);
+    EXPECT_EQ(cfg.rtkCorrections(), ERtkCorrections::Tiny);
 
     // Navigation filters: unset keys stay unset
     using FixMode = GnssConfig::NavigationFilters::FixMode;
@@ -549,6 +551,7 @@ TEST(ConfigRoundTrip, SaveLoadFull)
     EXPECT_EQ(rSi.minimumObservationTime_s, oSi.minimumObservationTime_s);
     EXPECT_DOUBLE_EQ(rSi.requiredPositionAccuracy_m,
                      oSi.requiredPositionAccuracy_m);
+    EXPECT_EQ(reloaded.rtkCorrections(), ERtkCorrections::Tiny);
 
     expectNavigationFiltersEq(r.navigationFilters, o.navigationFilters);
 }
@@ -591,6 +594,7 @@ TEST(ConfigMsgRoundTrip, FullConfig)
 
     ASSERT_EQ(r.rtk.has_value(), o.rtk.has_value());
     EXPECT_EQ(r.rtk->mode, o.rtk->mode);
+    EXPECT_EQ(restored.rtkCorrections(), ERtkCorrections::Tiny);
 
     expectNavigationFiltersEq(r.navigationFilters, o.navigationFilters);
 }
@@ -611,6 +615,7 @@ TEST(ConfigMsgRoundTrip, MinimalConfig)
     EXPECT_FALSE(restored.gnssConfig().geofencing.has_value());
     EXPECT_FALSE(restored.gnssConfig().rtk.has_value());
     EXPECT_FALSE(restored.gnssConfig().navigationFilters.has_value());
+    EXPECT_EQ(restored.rtkCorrections(), ERtkCorrections::Full);
 }
 
 

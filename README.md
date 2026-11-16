@@ -121,6 +121,7 @@ rtk:                           # optional — omit to disable
     type: survey_in            # required: "survey_in", "fixed_ecef", or "fixed_lla"
     min_observation_time_s: 120
     required_accuracy_m: 50.0
+    corrections: full          # "full" (MSM7, default) or "tiny" (MSM4)
     # fixed_ecef: x_m, y_m, z_m (required), position_accuracy_m (default 0.01)
     # fixed_lla: latitude_deg, longitude_deg, height_m (required), position_accuracy_m (default 0.01)
 ```
@@ -181,7 +182,7 @@ Set `node_id` in YAML (e.g. `"rover"`). Custom topics and services get the ID in
 
 ### Runtime Reconfiguration
 
-`SetGnssConfig` triggers a full lifecycle cycle: deactivate → cleanup → configure (new config) → activate. On failure the node automatically rolls back to the previous working config. A request with invalid enum values (`dynamic_model`, polarities, `rtk_mode`, `rtk_base_type`) or more than 4 geofences is rejected up front with `success: false` and the node keeps running unchanged.
+`SetGnssConfig` triggers a full lifecycle cycle: deactivate → cleanup → configure (new config) → activate. On failure the node automatically rolls back to the previous working config. A request with invalid enum values (`dynamic_model`, polarities, `rtk_mode`, `rtk_base_type`, `rtk_corrections`) or more than 4 geofences is rejected up front with `success: false` and the node keeps running unchanged.
 
 ```sh
 ros2 service call /gnss/get_config jp_gnss_hat/srv/GetGnssConfig
@@ -327,7 +328,14 @@ ros2 lifecycle set /jp_gnss_hat cleanup
 
 NEO-F9P only. Corrections flow over `/gnss/rtk/corrections` (`RtkCorrections` message — vector of raw RTCM3 frames). DDS handles discovery and transport between base and rover nodes.
 
-**Base** — calls `hat->rtk()->base()->getFullCorrections()` every navigation cycle, publishes the frames. Three position modes:
+**Base** — every navigation cycle fetches one RTCM3 set from `hat->rtk()->base()` and publishes the frames. `rtk.base.corrections` (GnssConfig `rtk_corrections`) picks the set:
+
+| Value | gnsshat call | RTCM3 messages |
+|-------|--------------|----------------|
+| `full` (default, `0`) | `getFullCorrections()` | MSM7: 1005, 1077, 1087, 1097, 1127, 1230 |
+| `tiny` (`1`) | `getTinyCorrections()` | MSM4: 1005, 1074, 1084, 1094, 1124, 1230 — less bandwidth, lower observation resolution |
+
+Three position modes:
 
 | Mode | Fields |
 |------|--------|
