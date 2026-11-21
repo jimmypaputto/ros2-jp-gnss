@@ -102,8 +102,9 @@ GnssNode::CallbackReturn GnssNode::on_configure(
         cfg.saveToFlash ? "Yes" : "No"
     );
 
-    // gnsshat reports why start() failed only on stderr, and some failures
-    // (e.g. an unsupported config key) surface as exceptions instead.
+    // gnsshat reports why start() failed only on stderr. Since 2.0.0 it
+    // returns false instead of throwing, but an exception must still not
+    // escape the lifecycle callback.
     bool started = false;
     try
     {
@@ -249,16 +250,17 @@ void GnssNode::sendNavigation(const Navigation& navigation)
     }
 }
 
+// The stop token ends the wait as soon as deactivate/shutdown asks for it,
+// so join() does not wait for the next epoch of a silent receiver.
 void GnssNode::navigationLoop(std::stop_token stopToken)
 {
-    while (!stopToken.stop_requested() && rclcpp::ok())
+    while (rclcpp::ok())
     {
-        const auto navigation = hat_->waitAndGetFreshNavigation();
-
-        if (stopToken.stop_requested())
+        const auto navigation = hat_->waitAndGetFreshNavigation(stopToken);
+        if (!navigation)
             break;
 
-        sendNavigation(navigation);
+        sendNavigation(*navigation);
 
         if (rtk_)
             rtk_->pollAndPublish();

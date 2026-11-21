@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.11)
 project(jp_gnss_hat)
 
 # gnsshat release fetched when no system install is found; bump here only.
-set(JP_GNSSHAT_GIT_TAG v1.2.0)
+set(JP_GNSSHAT_GIT_TAG v2.0.0)
 string(REGEX REPLACE "^v" "" JP_GNSSHAT_MIN_VERSION "${JP_GNSSHAT_GIT_TAG}")
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
