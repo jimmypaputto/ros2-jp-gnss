@@ -92,8 +92,6 @@ timepulse:
 # --------------------------------------------------------------------------
 # Navigation filters (all HATs) — every key is optional; omitted keys keep
 # the receiver default. Ranges are checked by gnsshat when the HAT starts.
-# gnsshat v1.2.0 cannot apply fix_mode and the *_mask_* keys yet (configure
-# fails with "Unknown configuration key size") — leave them commented out.
 # --------------------------------------------------------------------------
 # navigation_filters:
 #   min_svs: 4            # 3–32 satellites

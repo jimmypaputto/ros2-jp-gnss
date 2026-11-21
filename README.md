@@ -46,7 +46,7 @@ colcon build --packages-select jp_gnss_hat
 source install/setup.bash
 ```
 
-The [gnsshat](https://github.com/jimmypaputto/gnsshat) library is taken from the system if installed (e.g. `sudo make install` in gnsshat → `/usr/local`). Otherwise CMake `FetchContent` fetches the pinned release tag `v1.2.0` from GitHub. A system install older than that version produces a CMake warning.
+The [gnsshat](https://github.com/jimmypaputto/gnsshat) library is taken from the system if installed (e.g. `sudo make install` in gnsshat → `/usr/local`). Otherwise CMake `FetchContent` fetches it from GitHub. Supported gnsshat release: `v2.0.0`.
 
 ## Quick Start
 
@@ -129,8 +129,6 @@ rtk:                           # optional — omit to disable
 ### Navigation Filters
 
 `navigation_filters` maps to `GnssConfig::navigationFilters` in gnsshat (UBX CFG-NAVSPG) and works on every HAT. The keys match the `navigation_filters` dict of the gnsshat Python API. The YAML loader checks only types (e.g. `min_svs: 300` does not fit `uint8`); value ranges are validated by gnsshat when the HAT starts, so an out-of-range filter fails `configure` with `Failed to start GNSS HAT` in the node log and the exact reason (`[GnssConfig] Invalid navigation filter ...`) on stderr.
-
-> **Known gnsshat issue (v1.2.0):** `fix_mode`, `pdop_mask_x10`, `tdop_mask_x10`, `p_acc_mask_m` and `t_acc_mask_m` make `configure` fail with `Unknown configuration key size for key: 0x...` — gnsshat lacks their sizes in its UBX-CFG-VALGET key table. The `min_*`, `max_svs`, `n_cno_thrs` and `cno_thrs_dbhz` filters work.
 
 ### Dynamic Model
 
@@ -310,8 +308,8 @@ When `publish_standard_topics: true`:
 | Transition | Action |
 |------------|--------|
 | `configure` | `IGnssHat::create()`, soft reset, load YAML (or pending config), `hat->start()`, create publishers, init RTK bridge |
-| `activate` | Start `std::jthread` running `navigationLoop()` — blocks on `hat->waitAndGetFreshNavigation()` |
-| `deactivate` | `request_stop()` + `join()` on navigation thread |
+| `activate` | Start `std::jthread` running `navigationLoop()` — blocks on `hat->waitAndGetFreshNavigation(stop_token)` |
+| `deactivate` | `request_stop()` + `join()` on navigation thread — the stop token ends the wait at once, without waiting for the next epoch |
 | `cleanup` | Reset all publishers, converter, RTK bridge, HAT pointer |
 | `shutdown` | Defensive cleanup from any state |
 
@@ -353,8 +351,8 @@ Three position modes:
 
 - C++20, CMake ≥ 3.11
 - System dependency: `libgpiod-dev`
-- gnsshat: `find_library(gnsshat)` + `find_path(jimmypaputto/GnssHat.hpp)` → fallback to `FetchContent` of the tag in `JP_GNSSHAT_GIT_TAG` (currently `v1.2.0`) from GitHub
-  - the system install's version is read from `jimmypaputto/Version.hpp`; below `JP_GNSSHAT_GIT_TAG` (or with no `Version.hpp`) CMake prints a warning but still builds
+- gnsshat: `find_library(gnsshat)` + `find_path(jimmypaputto/GnssHat.hpp)` → fallback to `FetchContent` of the tag in `JP_GNSSHAT_GIT_TAG` from GitHub
+  - the system install's version is read from `jimmypaputto/Version.hpp`; below `JP_GNSSHAT_GIT_TAG` (or with no `Version.hpp`) CMake prints a warning
   - to move to a newer gnsshat release, change the single line `set(JP_GNSSHAT_GIT_TAG vX.Y.Z)` at the top of `CMakeLists.txt`. The same value sets the minimum version for the system install.
 - `rtcm_msgs`: `find_package(QUIET)` → if found, adds `-DJP_GNSS_NTRIP` and links
 
