@@ -300,7 +300,7 @@ When `publish_standard_topics: true`:
 |--------|--------|-------|
 | PVT lat/lon/alt | `NavSatFix.latitude/longitude/altitude` | Altitude = height above the WGS84 ellipsoid (not MSL) |
 | PVT horizontal/vertical accuracy (m) | `NavSatFix.position_covariance` | Diagonal, σ² = acc_m² |
-| PVT fix_quality | `NavSatFix.status` | Invalid→NO_FIX, GPS/PPS/DR→FIX, DGNSS→SBAS_FIX, RTK→GBAS_FIX |
+| PVT fix_quality, fix_status | `NavSatFix.status` | Invalid→NO_FIX, GPS/PPS/DR→FIX, DGNSS→SBAS_FIX, RTK→GBAS_FIX; `fix_status` Void (gnssFixOK clear, e.g. outside the `navigation_filters` masks)→NO_FIX |
 | Satellites with `used_in_fix` | `NavSatFix.status.service` | GPS/Galileo/GLONASS/BeiDou flags |
 | PVT speed + heading | `TwistWithCovarianceStamped` | Decomposed to ENU: vx=speed×sin(heading), vy=speed×cos(heading) |
 | PVT UTC time/date | `TimeReference` | Published only when both `utc_valid` and `date_valid` are true |

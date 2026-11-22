@@ -192,6 +192,11 @@ sensor_msgs::msg::NavSatFix Converter::toNavSatFix(
             break;
     }
 
+    // fix_status is gnssFixOK: when clear, the fix is outside the DOP and
+    // accuracy masks (e.g. navigation_filters) and must not be used.
+    if (pvt.fixStatus != EFixStatus::Active)
+        fix.status.status = sensor_msgs::msg::NavSatStatus::STATUS_NO_FIX;
+
     // Determine which GNSS services are in use from satellite info
     fix.status.service = 0;
     for (const auto& sat : navigation.satellites)

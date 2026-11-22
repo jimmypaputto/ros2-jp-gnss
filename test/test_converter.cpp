@@ -269,6 +269,21 @@ TEST_F(ConverterTest, NavSatFixStatusMapping)
               sensor_msgs::msg::NavSatStatus::STATUS_NO_FIX);
 }
 
+TEST_F(ConverterTest, NavSatFixNoFixWithoutGnssFixOk)
+{
+    auto nav = makeNavigation();
+    nav.pvt.fixStatus = EFixStatus::Void;
+
+    for (const auto quality : {EFixQuality::GpsFix2D3D, EFixQuality::DGNSS,
+            EFixQuality::FloatRtk, EFixQuality::FixedRTK})
+    {
+        nav.pvt.fixQuality = quality;
+        EXPECT_EQ(converter_->toNavSatFix(nav).status.status,
+                  sensor_msgs::msg::NavSatStatus::STATUS_NO_FIX)
+            << static_cast<int>(quality);
+    }
+}
+
 TEST_F(ConverterTest, NavSatFixServiceDetection)
 {
     const auto nav = makeNavigation();
