@@ -39,7 +39,8 @@ auto main(int argc, char** argv) -> int
     auto node = std::make_shared<JimmyPaputto::GnssNode>(nodeId);
 
     using CallbackReturn = JimmyPaputto::GnssNode::CallbackReturn;
-    CallbackReturn ret;
+    // trigger_transition() leaves ret untouched if the transition cannot start.
+    auto ret = CallbackReturn::ERROR;
 
     node->trigger_transition(
         lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE, ret);
@@ -51,6 +52,7 @@ auto main(int argc, char** argv) -> int
         return 1;
     }
 
+    ret = CallbackReturn::ERROR;
     node->trigger_transition(
         lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE, ret);
     if (ret != CallbackReturn::SUCCESS)

@@ -61,6 +61,7 @@ private:
         const jp_gnss_hat::srv::SetGnssConfig::Request::SharedPtr request,
         jp_gnss_hat::srv::SetGnssConfig::Response::SharedPtr response);
     std::string rollbackToActive();
+    bool runTransition(std::uint8_t transitionId);
 
     std::unique_ptr<IGnssHat, void(*)(IGnssHat*)> hat_;
     Topics topics_;

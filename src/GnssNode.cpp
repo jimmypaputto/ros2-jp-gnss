@@ -313,15 +313,13 @@ void GnssNode::onSetGnssConfig(
     const Config oldConfig = config_;
     pendingConfig_ = std::move(newConfig);
 
-    CallbackReturn ret;
     const auto currentStateId = get_current_state().id();
 
     if (currentStateId ==
         lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
     {
-        trigger_transition(
-            lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE, ret);
-        if (ret != CallbackReturn::SUCCESS)
+        if (!runTransition(
+                lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE))
         {
             pendingConfig_.reset();
             response->success = false;
@@ -333,26 +331,23 @@ void GnssNode::onSetGnssConfig(
     if (get_current_state().id() ==
         lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE)
     {
-        trigger_transition(
-            lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP, ret);
-        if (ret != CallbackReturn::SUCCESS)
+        if (!runTransition(
+                lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP))
         {
             pendingConfig_.reset();
             RCLCPP_WARN(get_logger(),
                 "Cleanup failed, attempting to reactivate with old config");
-            trigger_transition(
-                lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE, ret);
+            const bool reactivated = runTransition(
+                lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE);
             response->success = false;
-            response->message = (ret == CallbackReturn::SUCCESS)
+            response->message = reactivated
                 ? "Cleanup failed; restored old config"
                 : "Cleanup failed; reactivation also failed — node is inactive";
             return;
         }
     }
 
-    trigger_transition(
-        lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE, ret);
-    if (ret != CallbackReturn::SUCCESS)
+    if (!runTransition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE))
     {
         RCLCPP_WARN(get_logger(),
             "Configuration with new config failed, rolling back");
@@ -363,14 +358,11 @@ void GnssNode::onSetGnssConfig(
         return;
     }
 
-    trigger_transition(
-        lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE, ret);
-    if (ret != CallbackReturn::SUCCESS)
+    if (!runTransition(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE))
     {
         RCLCPP_WARN(get_logger(),
             "Activation with new config failed, rolling back");
-        trigger_transition(
-            lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP, ret);
+        runTransition(lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP);
         pendingConfig_ = oldConfig;
         const auto rollbackMsg = rollbackToActive();
         response->success = false;
@@ -392,20 +384,14 @@ void GnssNode::onSetGnssConfig(
 
 std::string GnssNode::rollbackToActive()
 {
-    CallbackReturn ret;
-
-    trigger_transition(
-        lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE, ret);
-    if (ret != CallbackReturn::SUCCESS)
+    if (!runTransition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE))
     {
         RCLCPP_FATAL(get_logger(),
             "Rollback configuration failed - node is unconfigured");
         return "rollback failed - node is unconfigured";
     }
 
-    trigger_transition(
-        lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE, ret);
-    if (ret != CallbackReturn::SUCCESS)
+    if (!runTransition(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE))
     {
         RCLCPP_FATAL(get_logger(),
             "Rollback activation failed - node is inactive");
@@ -414,6 +400,15 @@ std::string GnssNode::rollbackToActive()
 
     RCLCPP_INFO(get_logger(), "Rolled back to previous config");
     return "rolled back to previous config";
+}
+
+// trigger_transition() leaves the return code untouched when the transition
+// cannot even start, e.g. when it is not valid from the current state.
+bool GnssNode::runTransition(const std::uint8_t transitionId)
+{
+    auto ret = CallbackReturn::ERROR;
+    trigger_transition(transitionId, ret);
+    return ret == CallbackReturn::SUCCESS;
 }
 
 }  // JimmyPaputto
