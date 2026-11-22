@@ -370,14 +370,28 @@ void GnssNode::onSetGnssConfig(
         return;
     }
 
+    RCLCPP_INFO(get_logger(), "GNSS HAT reconfigured via service");
+
     if (request->save_to_yaml)
     {
-        config_.saveToYaml(configPath_);
+        // An exception escaping a service callback would abort the process.
+        try
+        {
+            config_.saveToYaml(configPath_);
+        }
+        catch (const std::exception& e)
+        {
+            RCLCPP_ERROR(get_logger(), "Failed to save config to %s: %s",
+                configPath_.c_str(), e.what());
+            response->success = false;
+            response->message =
+                std::string("Config applied but not saved: ") + e.what();
+            return;
+        }
         RCLCPP_INFO(get_logger(), "Config saved to: %s",
             configPath_.c_str());
     }
 
-    RCLCPP_INFO(get_logger(), "GNSS HAT reconfigured via service");
     response->success = true;
     response->message = "OK";
 }

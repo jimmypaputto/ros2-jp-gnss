@@ -184,6 +184,8 @@ Set `node_id` in YAML (e.g. `"rover"`). Custom topics and services get the ID in
 
 `SetGnssConfig` triggers a full lifecycle cycle: deactivate → cleanup → configure (new config) → activate. On failure the node automatically rolls back to the previous working config. A request with invalid enum values (`dynamic_model`, polarities, `rtk_mode`, `rtk_base_type`, `rtk_corrections`) or more than 4 geofences is rejected up front with `success: false` and the node keeps running unchanged.
 
+`save_to_yaml: true` rewrites the config file the node was started with (comments are not kept). The file is replaced atomically and keeps its owner and mode; a symlink is followed. If saving fails, the new config stays applied and the response is `success: false` with the reason.
+
 ```sh
 ros2 service call /gnss/get_config jp_gnss_hat/srv/GetGnssConfig
 

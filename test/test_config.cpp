@@ -478,6 +478,38 @@ TEST(ConfigRoundTrip, SaveLoadMinimal)
               original.gnssConfig().timepulsePinConfig.fixedPulse.frequency);
 }
 
+TEST(ConfigRoundTrip, SaveToMissingDirectoryThrows)
+{
+    Config cfg;
+    EXPECT_THROW(cfg.saveToYaml("/nonexistent-jp-gnss-dir/config.yaml"),
+        std::runtime_error);
+}
+
+TEST(ConfigRoundTrip, SaveReplacesSymlinkTargetAndKeepsMode)
+{
+    TmpFile target(kMinimalYaml);
+    Config cfg;
+    cfg.loadFromYaml(target.path());
+    cfg.gnssConfig().measurementRate_Hz = 7;
+
+    const auto mode = fs::perms::owner_read | fs::perms::owner_write |
+        fs::perms::group_read;
+    fs::permissions(target.path(), mode);
+    const fs::path link = target.path() + ".link";
+    fs::create_symlink(target.path(), link);
+
+    cfg.saveToYaml(link.string());
+
+    EXPECT_TRUE(fs::is_symlink(link));
+    EXPECT_EQ(fs::status(target.path()).permissions() & fs::perms::mask, mode);
+    EXPECT_FALSE(fs::exists(target.path() + ".tmp"));
+
+    Config reloaded;
+    reloaded.loadFromYaml(target.path());
+    EXPECT_EQ(reloaded.gnssConfig().measurementRate_Hz, 7);
+    fs::remove(link);
+}
+
 TEST(ConfigRoundTrip, SaveLoadFull)
 {
     TmpFile src(kFullYaml);

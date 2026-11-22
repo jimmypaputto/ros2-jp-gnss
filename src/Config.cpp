@@ -6,9 +6,15 @@
 #include "Rtk.hpp"
 #include "YamlUtils.hpp"
 
-#include <fstream>
+#include <cerrno>
+#include <cstring>
+#include <filesystem>
 #include <optional>
 #include <stdexcept>
+
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <yaml-cpp/yaml.h>
 
@@ -20,6 +26,72 @@ namespace
 {
 
 constexpr size_t kMaxGeofences = 4;
+
+[[noreturn]] void throwErrno(const std::string& what, const int err)
+{
+    throw std::runtime_error(what + ": " + std::strerror(err));
+}
+
+// Replaces the file atomically: a crash or a failed write leaves the old file
+// intact instead of a truncated one. A symlink is followed, so the file it
+// points to is replaced. An existing file keeps its owner and mode, which
+// matters because the node usually runs as root.
+void writeFileAtomically(const std::string& path, const std::string& content)
+{
+    const std::filesystem::path target = std::filesystem::weakly_canonical(path);
+    const std::string tmp = target.string() + ".tmp";
+
+    struct stat old{};
+    const bool exists = ::stat(target.c_str(), &old) == 0;
+
+    const int fd = ::open(tmp.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC,
+        0644);
+    if (fd < 0)
+        throwErrno("Cannot open " + tmp + " for writing", errno);
+
+    const auto fail = [&](const std::string& what)
+    {
+        const int err = errno;
+        ::close(fd);
+        ::unlink(tmp.c_str());
+        throwErrno(what, err);
+    };
+
+    for (size_t written = 0; written < content.size();)
+    {
+        const ssize_t n = ::write(fd, content.data() + written,
+            content.size() - written);
+        if (n < 0 && errno == EINTR)
+            continue;
+        if (n < 0)
+            fail("Cannot write " + tmp);
+        written += static_cast<size_t>(n);
+    }
+
+    if (exists)
+    {
+        // Only root may give the file away; anyone else keeps owning it.
+        if (::fchown(fd, old.st_uid, old.st_gid) != 0 && errno != EPERM)
+            fail("Cannot set the owner of " + tmp);
+        if (::fchmod(fd, old.st_mode & 07777) != 0)
+            fail("Cannot set the mode of " + tmp);
+    }
+    if (::fsync(fd) != 0)
+        fail("Cannot sync " + tmp);
+
+    if (::close(fd) != 0)
+    {
+        const int err = errno;
+        ::unlink(tmp.c_str());
+        throwErrno("Cannot close " + tmp, err);
+    }
+    if (::rename(tmp.c_str(), target.c_str()) != 0)
+    {
+        const int err = errno;
+        ::unlink(tmp.c_str());
+        throwErrno("Cannot replace " + target.string(), err);
+    }
+}
 
 TimepulsePinConfig::Pulse loadPulse(
     const YAML::Node& parent, const std::string& key, const std::string& path)
@@ -402,13 +474,7 @@ void Config::saveToYaml(const std::string& path) const
 
     out << YAML::EndMap;
 
-    std::ofstream fout(path);
-    if (!fout.is_open())
-    {
-        throw std::runtime_error(
-            "Cannot open config file for writing: " + path);
-    }
-    fout << out.c_str();
+    writeFileAtomically(path, std::string(out.c_str()) + "\n");
 }
 
 jp_gnss_hat::msg::GnssConfig Config::toMsg() const
