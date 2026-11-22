@@ -49,6 +49,8 @@ public:
 private:
     void sendNavigation(const Navigation& navigation);
     void navigationLoop(std::stop_token stopToken);
+    void stopNavigationThread();
+    void releaseResources();
     void onGetGeofencingCfg(
         const jp_gnss_hat::srv::GetGeofencingCfg::Request::SharedPtr request,
         jp_gnss_hat::srv::GetGeofencingCfg::Response::SharedPtr response);

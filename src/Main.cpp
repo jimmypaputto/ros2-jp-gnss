@@ -65,11 +65,9 @@ auto main(int argc, char** argv) -> int
     executor.add_node(node->get_node_base_interface());
     executor.spin();
 
-    node->trigger_transition(
-        lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE, ret);
-    node->trigger_transition(
-        lifecycle_msgs::msg::Transition::TRANSITION_CLEANUP, ret);
-
+    // spin() returns once SIGINT/SIGTERM has shut the context down. Lifecycle
+    // transitions cannot run from then on, so the node is not deactivated
+    // here: its destructor stops the navigation thread and releases the HAT.
     rclcpp::shutdown();
     return 0;
 }

@@ -313,7 +313,7 @@ When `publish_standard_topics: true`:
 | `cleanup` | Reset all publishers, converter, RTK bridge, HAT pointer |
 | `shutdown` | Defensive cleanup from any state |
 
-Auto-transition in `Main.cpp` uses `MultiThreadedExecutor`. On `SIGINT` the executor exits, then the node is cleanly deactivated and cleaned up.
+Auto-transition in `Main.cpp` uses `MultiThreadedExecutor`. On `SIGINT`/`SIGTERM` rclcpp shuts the context down and the executor exits. No lifecycle transition can run after that, so `on_deactivate`/`on_cleanup` are not called: the node destructor stops the navigation thread and releases the HAT instead.
 
 Manual control:
 

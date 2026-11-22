@@ -44,7 +44,14 @@ GnssNode::GnssNode(const std::string& nodeId)
     );
 }
 
-GnssNode::~GnssNode() = default;
+// After SIGINT/SIGTERM the context is already shut down, so no lifecycle
+// transition can run any more: each one fails to publish its transition event
+// before reaching the callback. Release everything here instead, before the
+// members used by the navigation thread are destroyed.
+GnssNode::~GnssNode()
+{
+    releaseResources();
+}
 
 GnssNode::CallbackReturn GnssNode::on_configure(
     const rclcpp_lifecycle::State&)
@@ -177,11 +184,7 @@ GnssNode::CallbackReturn GnssNode::on_activate(
 GnssNode::CallbackReturn GnssNode::on_deactivate(
     const rclcpp_lifecycle::State& state)
 {
-    if (navigationThread_.joinable())
-    {
-        navigationThread_.request_stop();
-        navigationThread_.join();
-    }
+    stopNavigationThread();
 
     LifecycleNode::on_deactivate(state);
 
@@ -192,22 +195,7 @@ GnssNode::CallbackReturn GnssNode::on_deactivate(
 GnssNode::CallbackReturn GnssNode::on_cleanup(
     const rclcpp_lifecycle::State&)
 {
-    RCLCPP_DEBUG(get_logger(), "on_cleanup: resetting rtk_");
-    rtk_.reset();
-    RCLCPP_DEBUG(get_logger(), "on_cleanup: resetting navPublisher_");
-    navPublisher_.reset();
-    RCLCPP_DEBUG(get_logger(), "on_cleanup: resetting navSatFixPub_");
-    navSatFixPub_.reset();
-    RCLCPP_DEBUG(get_logger(), "on_cleanup: resetting velPub_");
-    velPub_.reset();
-    RCLCPP_DEBUG(get_logger(), "on_cleanup: resetting timeRefPub_");
-    timeRefPub_.reset();
-    RCLCPP_DEBUG(get_logger(), "on_cleanup: resetting converter_");
-    converter_.reset();
-
-    RCLCPP_DEBUG(get_logger(), "on_cleanup: resetting hat_");
-    hat_.reset();
-    RCLCPP_DEBUG(get_logger(), "on_cleanup: hat_ reset complete");
+    releaseResources();
 
     RCLCPP_INFO(get_logger(), "GNSS node cleaned up");
     return CallbackReturn::SUCCESS;
@@ -216,12 +204,28 @@ GnssNode::CallbackReturn GnssNode::on_cleanup(
 GnssNode::CallbackReturn GnssNode::on_shutdown(
     const rclcpp_lifecycle::State&)
 {
-    if (navigationThread_.joinable())
-    {
-        navigationThread_.request_stop();
-        navigationThread_.join();
-    }
+    releaseResources();
 
+    RCLCPP_INFO(get_logger(), "GNSS node shut down");
+    return CallbackReturn::SUCCESS;
+}
+
+void GnssNode::stopNavigationThread()
+{
+    if (!navigationThread_.joinable())
+        return;
+
+    navigationThread_.request_stop();
+    navigationThread_.join();
+}
+
+// The navigation thread uses everything released below, so it goes first.
+// Safe to call again: everything is already released then.
+void GnssNode::releaseResources()
+{
+    stopNavigationThread();
+
+    RCLCPP_DEBUG(get_logger(), "Releasing RTK bridge and publishers");
     rtk_.reset();
     navPublisher_.reset();
     navSatFixPub_.reset();
@@ -229,10 +233,9 @@ GnssNode::CallbackReturn GnssNode::on_shutdown(
     timeRefPub_.reset();
     converter_.reset();
 
+    RCLCPP_DEBUG(get_logger(), "Releasing GNSS HAT");
     hat_.reset();
-
-    RCLCPP_INFO(get_logger(), "GNSS node shut down");
-    return CallbackReturn::SUCCESS;
+    RCLCPP_DEBUG(get_logger(), "GNSS HAT released");
 }
 
 void GnssNode::sendNavigation(const Navigation& navigation)
