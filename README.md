@@ -347,7 +347,7 @@ Three position modes:
 
 **Rover** — subscribes to corrections topic, calls `hat->rtk()->rover()->applyCorrections()`.
 
-**NTRIP bridge** — compiled conditionally (`-DJP_GNSS_NTRIP`, auto-detected via `find_package(rtcm_msgs QUIET)`). When enabled and `use_ntrip_rtcm: true`, the base additionally publishes each RTCM3 frame as `rtcm_msgs/Message` on `/rtcm`, and the rover additionally subscribes to `/rtcm`. Both native and NTRIP corrections can work simultaneously.
+**NTRIP bridge** — compiled conditionally (`-DJP_GNSS_NTRIP`, auto-detected via `find_package(rtcm_msgs QUIET)`). When enabled and `use_ntrip_rtcm: true`, the base additionally publishes each RTCM3 frame as `rtcm_msgs/Message` on `/rtcm`, and the rover additionally subscribes to `/rtcm`. Both native and NTRIP corrections can work simultaneously. If the package was built without `rtcm_msgs`, `use_ntrip_rtcm: true` only logs a warning and the bridge stays off.
 
 ## Build Details
 

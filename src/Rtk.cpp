@@ -33,9 +33,9 @@ RtkBridge::~RtkBridge()
 }
 
 bool RtkBridge::initialize(const GnssConfig& config, IRtk* rtk,
-    [[maybe_unused]] bool useNtripRtcm,
+    bool useNtripRtcm,
     const std::string& correctionsTopic,
-    [[maybe_unused]] const std::string& ntripTopic,
+    const std::string& ntripTopic,
     const ERtkCorrections corrections)
 {
     if (!rtk)
@@ -44,6 +44,16 @@ bool RtkBridge::initialize(const GnssConfig& config, IRtk* rtk,
             "Failed to initialize, RTK pointing to null");
         return false;
     }
+
+#ifndef JP_GNSS_NTRIP
+    if (useNtripRtcm)
+    {
+        RCLCPP_WARN(node_.get_logger(),
+            "use_ntrip_rtcm is set, but this build has no rtcm_msgs, so %s "
+            "is not bridged. Rebuild with rtcm_msgs installed.",
+            ntripTopic.c_str());
+    }
+#endif
 
     if (config.rtk->mode == ERtkMode::Base && !config.rtk->base)
     {

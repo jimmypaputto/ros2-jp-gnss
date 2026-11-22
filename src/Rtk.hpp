@@ -39,9 +39,9 @@ public:
     ~RtkBridge();
 
     bool initialize(const GnssConfig& config, IRtk* rtk,
-        [[maybe_unused]] bool useNtripRtcm,
+        bool useNtripRtcm,
         const std::string& correctionsTopic,
-        [[maybe_unused]] const std::string& ntripTopic,
+        const std::string& ntripTopic,
         ERtkCorrections corrections);
     void pollAndPublish();
     void onCorrections(const jp_gnss_hat::msg::RtkCorrections::SharedPtr msg);
