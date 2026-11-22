@@ -1,7 +1,7 @@
 node_id: "rtk_base"
 measurement_rate_hz: 5
 save_to_flash: false
-publish_standard_topics: true
+publish_standard_topics: false  # leave /gps/* to the rover
 dynamic_model: 2
 
 timepulse:
