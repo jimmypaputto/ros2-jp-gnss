@@ -16,10 +16,6 @@
 #include <jp_gnss_hat/msg/gnss_config.hpp>
 #include <jp_gnss_hat/msg/rtk_corrections.hpp>
 
-#ifdef JP_GNSS_NTRIP
-#include <rtcm_msgs/msg/message.hpp>
-#endif
-
 
 namespace JimmyPaputto
 {
@@ -39,9 +35,7 @@ public:
     ~RtkBridge();
 
     bool initialize(const GnssConfig& config, IRtk* rtk,
-        bool useNtripRtcm,
         const std::string& correctionsTopic,
-        const std::string& ntripTopic,
         ERtkCorrections corrections);
     void pollAndPublish();
     void onCorrections(const jp_gnss_hat::msg::RtkCorrections::SharedPtr msg);
@@ -67,13 +61,6 @@ private:
         jp_gnss_hat::msg::RtkCorrections>::SharedPtr pub_;
     rclcpp::Subscription<jp_gnss_hat::msg::RtkCorrections>::SharedPtr sub_;
     std::vector<std::vector<uint8_t>> bufor_;
-
-#ifdef JP_GNSS_NTRIP
-    rclcpp_lifecycle::LifecyclePublisher<
-        rtcm_msgs::msg::Message>::SharedPtr stdRtcmPub_;
-    rclcpp::Subscription<rtcm_msgs::msg::Message>::SharedPtr stdRtcmSub_;
-    void onStandardRtcm(const rtcm_msgs::msg::Message::SharedPtr msg);
-#endif
 };
 
 }  // JimmyPaputto

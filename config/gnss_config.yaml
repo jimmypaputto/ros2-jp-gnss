@@ -21,9 +21,8 @@
 #   /gnss/<node_id>/navigation
 #   /gnss/<node_id>/get_config   etc.
 #
-# Standard topics (/gps/fix, /gps/vel, /gps/time_reference), RTK corrections
-# (/gnss/rtk/corrections) and NTRIP (/rtcm) stay global — they are NOT
-# prefixed.
+# Standard topics (/gps/fix, /gps/vel, /gps/time_reference) and RTK
+# corrections (/gnss/rtk/corrections) stay global — they are NOT prefixed.
 #
 # Leave commented out (or empty) for single-node setups — the default
 # names (e.g. /gnss/navigation) are used unchanged.
@@ -110,8 +109,6 @@ timepulse:
 # RTK configuration (L1/L5 GNSS RTK HAT only — NEO-F9P)
 # Remove or comment out this section for non-RTK hats.
 # --------------------------------------------------------------------------
-# use_ntrip_rtcm: false
-
 # rtk:
 #   mode: rover            # required: "base" or "rover"
 #   base:                  # required for "base", ignored for "rover"

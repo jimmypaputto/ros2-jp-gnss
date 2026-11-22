@@ -26,16 +26,10 @@ RtkBridge::~RtkBridge()
     rover_ = nullptr;
     sub_.reset();
     pub_.reset();
-#ifdef JP_GNSS_NTRIP
-    stdRtcmSub_.reset();
-    stdRtcmPub_.reset();
-#endif
 }
 
 bool RtkBridge::initialize(const GnssConfig& config, IRtk* rtk,
-    bool useNtripRtcm,
     const std::string& correctionsTopic,
-    const std::string& ntripTopic,
     const ERtkCorrections corrections)
 {
     if (!rtk)
@@ -44,16 +38,6 @@ bool RtkBridge::initialize(const GnssConfig& config, IRtk* rtk,
             "Failed to initialize, RTK pointing to null");
         return false;
     }
-
-#ifndef JP_GNSS_NTRIP
-    if (useNtripRtcm)
-    {
-        RCLCPP_WARN(node_.get_logger(),
-            "use_ntrip_rtcm is set, but this build has no rtcm_msgs, so %s "
-            "is not bridged. Rebuild with rtcm_msgs installed.",
-            ntripTopic.c_str());
-    }
-#endif
 
     if (config.rtk->mode == ERtkMode::Base && !config.rtk->base)
     {
@@ -71,17 +55,6 @@ bool RtkBridge::initialize(const GnssConfig& config, IRtk* rtk,
         RCLCPP_INFO(node_.get_logger(),
             "RTK Base mode - publishing %s corrections",
             correctionsName(corrections_));
-
-#ifdef JP_GNSS_NTRIP
-        if (useNtripRtcm)
-        {
-            stdRtcmPub_ = node_.create_publisher<rtcm_msgs::msg::Message>(
-                ntripTopic, 10);
-            RCLCPP_INFO(node_.get_logger(),
-                "NTRIP RTCM bridge enabled - publishing on %s",
-                ntripTopic.c_str());
-        }
-#endif
     }
     else if (config.rtk->mode == ERtkMode::Rover && rtk->rover())
     {
@@ -91,19 +64,6 @@ bool RtkBridge::initialize(const GnssConfig& config, IRtk* rtk,
             std::bind(&RtkBridge::onCorrections, this, std::placeholders::_1));
         RCLCPP_INFO(node_.get_logger(),
             "RTK Rover mode - subscribing to corrections");
-
-#ifdef JP_GNSS_NTRIP
-        if (useNtripRtcm)
-        {
-            stdRtcmSub_ = node_.create_subscription<rtcm_msgs::msg::Message>(
-                ntripTopic, 10,
-                std::bind(&RtkBridge::onStandardRtcm, this,
-                    std::placeholders::_1));
-            RCLCPP_INFO(node_.get_logger(),
-                "NTRIP RTCM bridge enabled - subscribing on %s",
-                ntripTopic.c_str());
-        }
-#endif
     }
 
     return true;
@@ -130,20 +90,6 @@ void RtkBridge::pollAndPublish()
     }
 
     pub_->publish(msg);
-
-#ifdef JP_GNSS_NTRIP
-    if (stdRtcmPub_)
-    {
-        for (const auto& frame : frames)
-        {
-            rtcm_msgs::msg::Message stdMsg;
-            stdMsg.header.stamp = msg.header.stamp;
-            stdMsg.header.frame_id = frameId_;
-            stdMsg.message.assign(frame.begin(), frame.end());
-            stdRtcmPub_->publish(stdMsg);
-        }
-    }
-#endif
 }
 
 void RtkBridge::onCorrections(
@@ -421,17 +367,5 @@ ERtkCorrections RtkBridge::correctionsFromMsg(
     }
     return static_cast<ERtkCorrections>(msg.rtk_corrections);
 }
-
-#ifdef JP_GNSS_NTRIP
-void RtkBridge::onStandardRtcm(const rtcm_msgs::msg::Message::SharedPtr msg)
-{
-    if (!rover_)
-        return;
-
-    bufor_.resize(1);
-    bufor_[0] = msg->message;
-    rover_->applyCorrections(bufor_);
-}
-#endif
 
 }  // JimmyPaputto

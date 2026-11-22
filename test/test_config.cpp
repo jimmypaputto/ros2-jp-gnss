@@ -21,7 +21,6 @@ namespace fs = std::filesystem;
 static const std::string kMinimalYaml = R"(
 measurement_rate_hz: 5
 publish_standard_topics: false
-use_ntrip_rtcm: false
 dynamic_model: 4
 timepulse:
   active: true
@@ -34,7 +33,6 @@ timepulse:
 static const std::string kFullYaml = R"(
 measurement_rate_hz: 10
 publish_standard_topics: true
-use_ntrip_rtcm: true
 save_to_flash: true
 dynamic_model: 2
 timepulse:
@@ -123,7 +121,6 @@ TEST(ConfigLoad, MinimalYaml)
 
     EXPECT_EQ(cfg.gnssConfig().measurementRate_Hz, 5);
     EXPECT_FALSE(cfg.publishStandardTopics());
-    EXPECT_FALSE(cfg.useNtripRtcm());
     EXPECT_FALSE(cfg.gnssConfig().saveToFlash);
     EXPECT_EQ(cfg.gnssConfig().dynamicModel, EDynamicModel::Automotive);
     EXPECT_TRUE(cfg.gnssConfig().timepulsePinConfig.active);
@@ -146,7 +143,6 @@ TEST(ConfigLoad, FullYaml)
 
     EXPECT_EQ(cfg.gnssConfig().measurementRate_Hz, 10);
     EXPECT_TRUE(cfg.publishStandardTopics());
-    EXPECT_TRUE(cfg.useNtripRtcm());
     EXPECT_TRUE(cfg.gnssConfig().saveToFlash);
     EXPECT_EQ(cfg.gnssConfig().dynamicModel, EDynamicModel::Stationary);
 
@@ -469,7 +465,6 @@ TEST(ConfigRoundTrip, SaveLoadMinimal)
               original.gnssConfig().measurementRate_Hz);
     EXPECT_EQ(reloaded.publishStandardTopics(),
               original.publishStandardTopics());
-    EXPECT_EQ(reloaded.useNtripRtcm(), original.useNtripRtcm());
     EXPECT_EQ(reloaded.gnssConfig().dynamicModel,
               original.gnssConfig().dynamicModel);
     EXPECT_EQ(reloaded.gnssConfig().saveToFlash,
@@ -529,7 +524,6 @@ TEST(ConfigRoundTrip, SaveLoadFull)
     EXPECT_EQ(r.dynamicModel, o.dynamicModel);
     EXPECT_EQ(reloaded.publishStandardTopics(),
               original.publishStandardTopics());
-    EXPECT_EQ(reloaded.useNtripRtcm(), original.useNtripRtcm());
     EXPECT_EQ(r.saveToFlash, o.saveToFlash);
 
     // Timepulse
@@ -609,7 +603,6 @@ TEST(ConfigMsgRoundTrip, FullConfig)
     EXPECT_EQ(r.dynamicModel, o.dynamicModel);
     EXPECT_EQ(restored.publishStandardTopics(),
               original.publishStandardTopics());
-    EXPECT_EQ(restored.useNtripRtcm(), original.useNtripRtcm());
     EXPECT_EQ(r.saveToFlash, o.saveToFlash);
 
     EXPECT_EQ(r.timepulsePinConfig.active, o.timepulsePinConfig.active);
@@ -678,7 +671,6 @@ static const std::string kYamlWithNodeId = R"(
 node_id: "rover"
 measurement_rate_hz: 5
 publish_standard_topics: false
-use_ntrip_rtcm: false
 dynamic_model: 4
 timepulse:
   active: true
@@ -766,7 +758,6 @@ TEST(Topics, DefaultEmpty)
     EXPECT_EQ(t.getConfig,     "/gnss/get_config");
     EXPECT_EQ(t.setConfig,     "/gnss/set_config");
     EXPECT_EQ(t.rtkCorrections, "/gnss/rtk/corrections");
-    EXPECT_EQ(t.ntrip,          "/rtcm");
 }
 
 TEST(Topics, WithNodeId)
@@ -783,7 +774,6 @@ TEST(Topics, WithNodeId)
     EXPECT_EQ(t.timeReference, "/gps/time_reference");
     // Shared RTK topics unchanged
     EXPECT_EQ(t.rtkCorrections, "/gnss/rtk/corrections");
-    EXPECT_EQ(t.ntrip,          "/rtcm");
 }
 
 TEST(Topics, BaseNodeId)

@@ -18,7 +18,6 @@ struct Topics
     std::string velocity;
     std::string timeReference;
     std::string rtkCorrections;
-    std::string ntrip;
     std::string geofencingCfg;
     std::string getConfig;
     std::string setConfig;
@@ -39,7 +38,6 @@ struct Topics
         setConfig      = gnss + "/set_config";
 
         rtkCorrections = "/gnss/rtk/corrections";
-        ntrip          = "/rtcm";
     }
 };
 

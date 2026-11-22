@@ -31,8 +31,6 @@ source ~/ros2_jazzy/install/setup.bash
 sudo apt-get install libgpiod-dev
 ```
 
-Optional - NTRIP bridge (`rtcm_msgs/Message` on `/rtcm`). Since there are no apt packages for ROS 2 on Raspberry Pi, build `rtcm_msgs` package from source, for example: https://github.com/tilk/rtcm_msgs.git.
-
 ### Build
 
 ```sh
@@ -78,7 +76,6 @@ node_id: ""                    # multi-instance: changes node name and topic pre
 measurement_rate_hz: 1         # 1–25 Hz
 save_to_flash: false           # persist config to u-blox receiver flash
 publish_standard_topics: true  # publish /gps/fix, /gps/vel, /gps/time_reference
-use_ntrip_rtcm: false          # bridge to/from rtcm_msgs (requires rtcm_msgs)
 dynamic_model: 2               # see table below
 
 timepulse:                     # optional — omit entire section to disable the pin
@@ -154,18 +151,16 @@ All publishers use QoS depth 10. All messages carry `std_msgs/Header` with times
 | `/gps/vel` | `geometry_msgs/TwistWithCovarianceStamped` | `publish_standard_topics: true` |
 | `/gps/time_reference` | `sensor_msgs/TimeReference` | `publish_standard_topics: true` AND valid UTC time and date |
 | `/gnss/rtk/corrections` | `jp_gnss_hat/RtkCorrections` | RTK base |
-| `/rtcm` | `rtcm_msgs/Message` | `use_ntrip_rtcm: true` + RTK base |
 
 ### Subscribed
 
 | Topic | Type | Condition |
 |-------|------|-----------|
 | `/gnss/rtk/corrections` | `jp_gnss_hat/RtkCorrections` | RTK rover |
-| `/rtcm` | `rtcm_msgs/Message` | `use_ntrip_rtcm: true` + RTK rover |
 
 ### Multi-Instance
 
-Set `node_id` in YAML (e.g. `"rover"`). Custom topics and services get the ID inserted: `/gnss/rover/navigation`, `/gnss/rover/get_config`, etc. Standard topics (`/gps/*`) and RTK topics (`/gnss/rtk/corrections`, `/rtcm`) stay global — intentionally shared between instances.
+Set `node_id` in YAML (e.g. `"rover"`). Custom topics and services get the ID inserted: `/gnss/rover/navigation`, `/gnss/rover/get_config`, etc. Standard topics (`/gps/*`) and the RTK corrections topic (`/gnss/rtk/corrections`) stay global — intentionally shared between instances.
 
 | `node_id` | Node name | Navigation topic | Services prefix |
 |-----------|-----------|-----------------|-----------------|
@@ -373,8 +368,6 @@ Three position modes:
 
 **Rover** — subscribes to corrections topic, calls `hat->rtk()->rover()->applyCorrections()`.
 
-**NTRIP bridge** — compiled conditionally (`-DJP_GNSS_NTRIP`, auto-detected via `find_package(rtcm_msgs QUIET)`). When enabled and `use_ntrip_rtcm: true`, the base additionally publishes each RTCM3 frame as `rtcm_msgs/Message` on `/rtcm`, and the rover additionally subscribes to `/rtcm`. Both native and NTRIP corrections can work simultaneously. If the package was built without `rtcm_msgs`, `use_ntrip_rtcm: true` only logs a warning and the bridge stays off.
-
 ## Build Details
 
 - C++20, CMake ≥ 3.11
@@ -382,7 +375,6 @@ Three position modes:
 - gnsshat: `find_library(gnsshat)` + `find_path(jimmypaputto/GnssHat.hpp)` → fallback to `FetchContent` of the tag in `JP_GNSSHAT_GIT_TAG` from GitHub
   - the system install's version is read from `jimmypaputto/Version.hpp`; below `JP_GNSSHAT_GIT_TAG` (or with no `Version.hpp`) CMake prints a warning
   - to move to a newer gnsshat release, change the single line `set(JP_GNSSHAT_GIT_TAG vX.Y.Z)` at the top of `CMakeLists.txt`. The same value sets the minimum version for the system install.
-- `rtcm_msgs`: `find_package(QUIET)` → if found, adds `-DJP_GNSS_NTRIP` and links
 
 ```sh
 # Build

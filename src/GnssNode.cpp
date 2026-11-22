@@ -156,9 +156,7 @@ GnssNode::CallbackReturn GnssNode::on_configure(
         const bool rtkInitialized = rtk_->initialize(
             config_.gnssConfig(),
             hat_->rtk(),
-            config_.useNtripRtcm(),
             topics_.rtkCorrections,
-            topics_.ntrip,
             config_.rtkCorrections()
         );
         if (!rtkInitialized)

@@ -4,7 +4,6 @@
 uint16 measurement_rate_hz
 uint8 dynamic_model
 bool publish_standard_topics
-bool use_ntrip_rtcm
 bool save_to_flash
 
 # Timepulse

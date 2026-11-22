@@ -40,9 +40,6 @@ public:
     bool publishStandardTopics() const { return publishStandardTopics_; }
     void publishStandardTopics(const bool value) { publishStandardTopics_ = value; }
 
-    bool useNtripRtcm() const { return useNtripRtcm_; }
-    void useNtripRtcm(const bool value) { useNtripRtcm_ = value; }
-
     ERtkCorrections rtkCorrections() const { return rtkCorrections_; }
     void rtkCorrections(const ERtkCorrections value) { rtkCorrections_ = value; }
 
@@ -52,7 +49,6 @@ public:
 private:
     GnssConfig gnssConfig_{};
     bool publishStandardTopics_{true};
-    bool useNtripRtcm_{false};
     ERtkCorrections rtkCorrections_{ERtkCorrections::Full};
     std::string nodeId_;
 };

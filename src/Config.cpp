@@ -357,8 +357,6 @@ void Config::loadFromYaml(const std::string& path)
         yaml::value<std::string>(root, "node_id", "node_id", "");
     const auto publishStandardTopics = yaml::value<bool>(
         root, "publish_standard_topics", "publish_standard_topics", true);
-    const auto useNtripRtcm =
-        yaml::value<bool>(root, "use_ntrip_rtcm", "use_ntrip_rtcm", false);
 
     GnssConfig config{};
 
@@ -389,7 +387,6 @@ void Config::loadFromYaml(const std::string& path)
 
     nodeId_ = nodeId;
     publishStandardTopics_ = publishStandardTopics;
-    useNtripRtcm_ = useNtripRtcm;
     rtkCorrections_ = rtkCorrections;
     gnssConfig_ = config;
 }
@@ -406,8 +403,6 @@ void Config::saveToYaml(const std::string& path) const
         << YAML::Value << gnssConfig_.measurementRate_Hz;
     out << YAML::Key << "publish_standard_topics"
         << YAML::Value << publishStandardTopics_;
-    out << YAML::Key << "use_ntrip_rtcm"
-        << YAML::Value << useNtripRtcm_;
     out << YAML::Key << "save_to_flash"
         << YAML::Value << gnssConfig_.saveToFlash;
     out << YAML::Key << "dynamic_model"
@@ -483,7 +478,6 @@ jp_gnss_hat::msg::GnssConfig Config::toMsg() const
     msg.measurement_rate_hz = gnssConfig_.measurementRate_Hz;
     msg.dynamic_model = static_cast<uint8_t>(gnssConfig_.dynamicModel);
     msg.publish_standard_topics = publishStandardTopics_;
-    msg.use_ntrip_rtcm = useNtripRtcm_;
     msg.save_to_flash = gnssConfig_.saveToFlash;
 
     const auto& tp = gnssConfig_.timepulsePinConfig;
@@ -599,7 +593,6 @@ void Config::fromMsg(const jp_gnss_hat::msg::GnssConfig& msg)
         navigationFiltersFromMsg(msg.navigation_filters);
 
     publishStandardTopics_ = msg.publish_standard_topics;
-    useNtripRtcm_ = msg.use_ntrip_rtcm;
     rtkCorrections_ = rtkCorrections;
     gnssConfig_ = config;
 }

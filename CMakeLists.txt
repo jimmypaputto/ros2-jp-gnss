@@ -25,14 +25,6 @@ find_package(rosidl_default_generators REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(ament_index_cpp REQUIRED)
 
-# Optional: rtcm_msgs enables standard /rtcm topic bridge
-find_package(rtcm_msgs QUIET)
-if(rtcm_msgs_FOUND)
-    message(STATUS "rtcm_msgs found - standard /rtcm topic bridge enabled")
-else()
-    message(STATUS "rtcm_msgs not found - only jp_gnss_hat/rtk protocol available")
-endif()
-
 # gnsshat — jimmypaputto/gnsshat driver (https://github.com/jimmypaputto/gnsshat)
 # Uses system-installed version if available, otherwise fetches ${JP_GNSSHAT_GIT_TAG}
 # from GitHub.
@@ -113,11 +105,6 @@ ament_target_dependencies(
 )
 target_link_libraries(gnss_node gnsshat yaml-cpp)
 
-if(rtcm_msgs_FOUND)
-    target_compile_definitions(gnss_node PRIVATE JP_GNSS_NTRIP)
-    ament_target_dependencies(gnss_node rtcm_msgs)
-endif()
-
 # Link generated message headers to executable
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME}
     rosidl_typesupport_cpp)
@@ -141,10 +128,6 @@ if(BUILD_TESTING)
             gnsshat yaml-cpp "${cpp_typesupport_target}")
         target_compile_definitions(${TARGET_NAME} PRIVATE
             JP_GNSS_HAT_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
-        if(rtcm_msgs_FOUND)
-            target_compile_definitions(${TARGET_NAME} PRIVATE JP_GNSS_NTRIP)
-            ament_target_dependencies(${TARGET_NAME} rtcm_msgs)
-        endif()
     endmacro()
 
     jp_gnss_hat_add_test(test_config    test/test_config.cpp)
