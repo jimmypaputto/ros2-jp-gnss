@@ -323,6 +323,10 @@ TEST_F(ConverterTest, TwistCovariance)
     EXPECT_NEAR(twist.twist.covariance[0], sVar, 1e-6);   // vx-vx
     EXPECT_NEAR(twist.twist.covariance[7], sVar, 1e-6);   // vy-vy
     EXPECT_DOUBLE_EQ(twist.twist.covariance[14], 99.0);    // vz-vz
+    // Angular velocity is not measured: unknown, not "exactly zero"
+    EXPECT_DOUBLE_EQ(twist.twist.covariance[21], 99.0);
+    EXPECT_DOUBLE_EQ(twist.twist.covariance[28], 99.0);
+    EXPECT_DOUBLE_EQ(twist.twist.covariance[35], 99.0);
 }
 
 

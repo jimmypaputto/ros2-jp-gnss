@@ -302,7 +302,7 @@ When `publish_standard_topics: true`:
 | PVT horizontal/vertical accuracy (m) | `NavSatFix.position_covariance` | Diagonal, σ² = acc_m² |
 | PVT fix_quality, fix_status | `NavSatFix.status` | Invalid→NO_FIX, GPS/PPS/DR→FIX, DGNSS→SBAS_FIX, RTK→GBAS_FIX; `fix_status` Void (gnssFixOK clear, e.g. outside the `navigation_filters` masks)→NO_FIX |
 | Satellites with `used_in_fix` | `NavSatFix.status.service` | GPS/Galileo/GLONASS/BeiDou flags |
-| PVT speed + heading | `TwistWithCovarianceStamped` | Decomposed to ENU: vx=speed×sin(heading), vy=speed×cos(heading) |
+| PVT speed + heading | `TwistWithCovarianceStamped` | Decomposed to ENU: vx=speed×sin(heading), vy=speed×cos(heading); variance speed_accuracy². vz and angular velocity are not measured: variance 99 |
 | PVT UTC time/date | `TimeReference` | Published only when both `utc_valid` and `date_valid` are true |
 
 ## Lifecycle

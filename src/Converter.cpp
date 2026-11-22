@@ -274,11 +274,17 @@ geometry_msgs::msg::TwistWithCovarianceStamped Converter::toTwist(
     // Speed accuracy → diagonal covariance
     const double sVar =
         static_cast<double>(pvt.speedAccuracy * pvt.speedAccuracy);
-    // 6×6 row-major, only diagonal for linear x/y
+    // Not measured (vz, angular velocity): a large variance, because 0 would
+    // claim they are known to be exactly zero.
+    constexpr double kUnknownVariance = 99.0;
+    // 6×6 row-major, diagonal only
     twist.twist.covariance.fill(0.0);
-    twist.twist.covariance[0]  = sVar;  // vx-vx
-    twist.twist.covariance[7]  = sVar;  // vy-vy
-    twist.twist.covariance[14] = 99.0;  // vz-vz unknown → large
+    twist.twist.covariance[0]  = sVar;              // vx-vx
+    twist.twist.covariance[7]  = sVar;              // vy-vy
+    twist.twist.covariance[14] = kUnknownVariance;  // vz-vz
+    twist.twist.covariance[21] = kUnknownVariance;  // roll rate
+    twist.twist.covariance[28] = kUnknownVariance;  // pitch rate
+    twist.twist.covariance[35] = kUnknownVariance;  // yaw rate
 
     return twist;
 }
