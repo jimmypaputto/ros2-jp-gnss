@@ -186,13 +186,39 @@ Set `node_id` in YAML (e.g. `"rover"`). Custom topics and services get the ID in
 
 `save_to_yaml: true` rewrites the config file the node was started with (comments are not kept). The file is replaced atomically and keeps its owner and mode; a symlink is followed. If saving fails, the new config stays applied and the response is `success: false` with the reason.
 
+`SetGnssConfig` replaces the **whole** configuration: every field left out of the request takes its message default (`0` / `false`). That disables geofencing, RTK and navigation filters, and `timepulse_polarity: 0` means the falling edge. Start from `get_config` and send the full config back with your changes:
+
+```python
+import rclpy
+from rclpy.node import Node
+from jp_gnss_hat.srv import GetGnssConfig, SetGnssConfig
+
+rclpy.init()
+node = Node('gnss_reconfigure')
+get_cfg = node.create_client(GetGnssConfig, '/gnss/get_config')
+set_cfg = node.create_client(SetGnssConfig, '/gnss/set_config')
+get_cfg.wait_for_service()
+set_cfg.wait_for_service()
+
+future = get_cfg.call_async(GetGnssConfig.Request())
+rclpy.spin_until_future_complete(node, future)
+config = future.result().config
+config.measurement_rate_hz = 5          # change only what you need
+
+future = set_cfg.call_async(SetGnssConfig.Request(config=config, save_to_yaml=False))
+rclpy.spin_until_future_complete(node, future)
+print(future.result())
+```
+
+From the shell, list every field you rely on. Here: a HAT without geofencing and RTK, rising-edge timepulse as in the shipped configs:
+
 ```sh
 ros2 service call /gnss/get_config jp_gnss_hat/srv/GetGnssConfig
 
 ros2 service call /gnss/set_config jp_gnss_hat/srv/SetGnssConfig \
   "{config: {measurement_rate_hz: 5, dynamic_model: 4, publish_standard_topics: true, \
   timepulse_active: true, timepulse_frequency: 10, timepulse_pulse_width: 0.1, \
-  timepulse_polarity: 0}, save_to_yaml: true}"
+  timepulse_polarity: 1}, save_to_yaml: false}"
 ```
 
 ## Messages
