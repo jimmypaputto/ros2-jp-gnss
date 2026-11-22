@@ -23,6 +23,7 @@ RtkBridge::RtkBridge(
 RtkBridge::~RtkBridge()
 {
     ntripRover_.reset();
+    ntripBase_.reset();
     base_ = nullptr;
     rover_ = nullptr;
     sub_.reset();
@@ -57,6 +58,12 @@ bool RtkBridge::initialize(const GnssConfig& config, IRtk* rtk,
         RCLCPP_INFO(node_.get_logger(),
             "RTK Base mode - publishing %s corrections",
             correctionsName(corrections_));
+
+        if (ntrip)
+        {
+            ntripBase_ = std::make_unique<NtripBaseLink>(*ntrip,
+                node_.get_logger().get_child("ntrip"));
+        }
     }
     else if (config.rtk->mode == ERtkMode::Rover && rtk->rover())
     {
@@ -105,6 +112,9 @@ void RtkBridge::pollAndPublish()
     }
 
     pub_->publish(msg);
+
+    if (ntripBase_ && !frames.empty())
+        ntripBase_->feed(frames);
 }
 
 void RtkBridge::onCorrections(

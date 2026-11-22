@@ -2,8 +2,8 @@
  * Jimmy Paputto 2026
  */
 
-// NtripRoverLink against a gnsshat NtripCaster on localhost: real sockets,
-// no receiver needed.
+// NTRIP links against a gnsshat NtripCaster on localhost: real sockets, no
+// receiver needed.
 
 #include <chrono>
 #include <cstdint>
@@ -137,6 +137,36 @@ TEST(NtripRoverLink, AppliesOneBatchPerBurst)
         EXPECT_EQ(batch, kEpoch);
 }
 
+// The caster relays what a base sends to the rover connected to it.
+TEST(NtripBaseLink, SendsToTheCaster)
+{
+    const uint16_t port = testPort(2);
+    NtripCaster caster("127.0.0.1", port, "TEST");
+    ASSERT_TRUE(caster.start());
+
+    FakeRover rover;
+    NtripRoverLink roverLink(localCaster(port), rover,
+        rclcpp::get_logger("test_ntrip"));
+    ASSERT_TRUE(waitUntil([&] { return caster.clientCount() == 1; }));
+
+    NtripBaseLink baseLink(localCaster(port),
+        rclcpp::get_logger("test_ntrip"));
+    // One set per epoch, as the base node sends them.
+    ASSERT_TRUE(waitUntil([&] {
+        baseLink.feed(kEpoch);
+        std::this_thread::sleep_for(200ms);
+        return !rover.batches().empty();
+    }));
+
+    // A batch can hold several epochs, but only whole ones.
+    for (const auto& batch : rover.batches())
+    {
+        ASSERT_EQ(batch.size() % kEpoch.size(), 0u);
+        for (size_t i = 0; i < batch.size(); ++i)
+            EXPECT_EQ(batch[i], kEpoch[i % kEpoch.size()]);
+    }
+}
+
 TEST(NtripRoverLink, StopsWhileCasterIsUnreachable)
 {
     FakeRover rover;
@@ -148,6 +178,18 @@ TEST(NtripRoverLink, StopsWhileCasterIsUnreachable)
     link.reset();
     EXPECT_LT(std::chrono::steady_clock::now() - start, 500ms);
     EXPECT_TRUE(rover.batches().empty());
+}
+
+TEST(NtripBaseLink, StopsWhileCasterIsUnreachable)
+{
+    auto link = std::make_unique<NtripBaseLink>(localCaster(testPort(3)),
+        rclcpp::get_logger("test_ntrip"));
+    link->feed(kEpoch);
+    std::this_thread::sleep_for(300ms);
+
+    const auto start = std::chrono::steady_clock::now();
+    link.reset();
+    EXPECT_LT(std::chrono::steady_clock::now() - start, 1s);
 }
 
 }  // JimmyPaputto::test

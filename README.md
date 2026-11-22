@@ -377,12 +377,12 @@ Three position modes:
 
 ### NTRIP
 
-With `rtk.ntrip` the rover takes corrections straight from an NTRIP caster — no other ROS package or node is needed. It uses the NTRIP client built into gnsshat (`NtripClient`, NTRIP 2.0):
+`rtk.ntrip` connects the node to an NTRIP caster through the NTRIP 2.0 client and server built into gnsshat — no other ROS package or node is needed. The RTK mode picks the direction:
 
-- The node connects in the background, so `configure` does not wait for the network. Until the first connection succeeds it retries every 1 s, doubling up to 30 s; after that the client reconnects by itself.
-- The RTCM3 frames of one burst from the caster (one epoch) go to the receiver together, once the stream pauses for 100 ms.
-- Every `gga_interval_s` seconds the current fix is sent to the caster as GGA, which VRS and nearest-base mountpoints need. Nothing is sent before the first fix.
-- `/gnss/rtk/corrections` keeps working alongside.
+- **Rover** (`NtripClient`) — receives corrections from the caster. Until the first connection succeeds it retries every 1 s, doubling up to 30 s; after that the client reconnects by itself. The RTCM3 frames of one burst (one epoch) go to the receiver together, once the stream pauses for 100 ms. Every `gga_interval_s` seconds the current fix is sent to the caster as GGA, which VRS and nearest-base mountpoints need; nothing is sent before the first fix.
+- **Base** (`NtripServer`, HTTP POST) — sends each RTCM3 set it publishes on `/gnss/rtk/corrections` (`full` or `tiny`) to the mountpoint and reconnects with the same backoff. A set the caster has not taken yet is replaced by the newer one. `gga_interval_s` is ignored.
+
+Both connect in the background, so `configure` does not wait for the network, and `/gnss/rtk/corrections` keeps working alongside. A base's mountpoint serves any NTRIP client, including ROS packages such as `ntrip_client`.
 
 The NTRIP settings come from the YAML file only. They are not part of `GnssConfig`: `get_config` does not return them (so the password stays off the network), `set_config` keeps them and `save_to_yaml` writes them back. The password is stored in the YAML file in plain text.
 

@@ -182,4 +182,56 @@ void NtripRoverLink::run(std::stop_token stopToken)
     }
 }
 
+NtripBaseLink::NtripBaseLink(const NtripConfig& config,
+    const rclcpp::Logger& logger)
+:   logger_(logger),
+    server_(config.host, config.port, config.mountpoint,
+        config.username, config.password)
+{
+    server_.setLogCallback(toRosLog(logger_));
+    server_.setLogLevel(ENtripLogLevel::Debug);
+    // With auto-reconnect on, connect() keeps retrying in the background
+    // when the first attempt fails.
+    server_.setAutoReconnect(true);
+
+    RCLCPP_INFO(logger_, "NTRIP server - corrections to %s:%u/%s",
+        config.host.c_str(), static_cast<unsigned>(config.port),
+        config.mountpoint.c_str());
+
+    worker_ = std::jthread([this](std::stop_token stopToken) {
+        run(stopToken);
+    });
+}
+
+void NtripBaseLink::feed(const std::vector<std::vector<uint8_t>>& frames)
+{
+    {
+        std::lock_guard lock(mutex_);
+        pending_ = frames;
+    }
+    newFrames_.notify_one();
+}
+
+// Kept off the navigation thread: the first connect() may block for ~15 s,
+// and a send blocks while the caster does not read. A caster that stops
+// reading therefore also holds up stopping the link.
+void NtripBaseLink::run(std::stop_token stopToken)
+{
+    server_.connect();
+
+    std::vector<std::vector<uint8_t>> frames;
+    while (true)
+    {
+        {
+            std::unique_lock lock(mutex_);
+            if (!newFrames_.wait(lock, stopToken,
+                    [this] { return !pending_.empty(); }))
+                return;
+            frames = std::move(pending_);
+            pending_.clear();
+        }
+        server_.feed(frames);
+    }
+}
+
 }  // JimmyPaputto

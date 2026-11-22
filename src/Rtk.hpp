@@ -69,6 +69,7 @@ private:
     rclcpp::Subscription<jp_gnss_hat::msg::RtkCorrections>::SharedPtr sub_;
     std::vector<std::vector<uint8_t>> bufor_;
     std::unique_ptr<NtripRoverLink> ntripRover_;
+    std::unique_ptr<NtripBaseLink> ntripBase_;
 };
 
 }  // JimmyPaputto

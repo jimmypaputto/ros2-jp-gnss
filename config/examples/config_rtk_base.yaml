@@ -18,3 +18,10 @@ rtk:
     min_observation_time_s: 180
     required_accuracy_m: 50.0
     corrections: full     # "full" (MSM7) or "tiny" (MSM4)
+  # Also send the corrections to an NTRIP caster:
+  # ntrip:
+  #   host: caster.example.com   # required
+  #   port: 2101
+  #   mountpoint: MOUNT          # required
+  #   username: user
+  #   password: pass
