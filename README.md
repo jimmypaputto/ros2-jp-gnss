@@ -121,6 +121,13 @@ rtk:                           # optional — omit to disable
     corrections: full          # "full" (MSM7, default) or "tiny" (MSM4)
     # fixed_ecef: x_m, y_m, z_m (required), position_accuracy_m (default 0.01)
     # fixed_lla: latitude_deg, longitude_deg, height_m (required), position_accuracy_m (default 0.01)
+  ntrip:                       # optional — NTRIP caster, see RTK below
+    host: caster.example.com   # required
+    port: 2101
+    mountpoint: MOUNT          # required
+    username: user
+    password: pass
+    gga_interval_s: 10         # rover: send the position to the caster (VRS), 0 = off
 ```
 
 ### Navigation Filters
@@ -181,7 +188,7 @@ Set `node_id` in YAML (e.g. `"rover"`). Custom topics and services get the ID in
 
 `save_to_yaml: true` rewrites the config file the node was started with (comments are not kept). The file is replaced atomically and keeps its owner and mode; a symlink is followed. If saving fails, the new config stays applied and the response is `success: false` with the reason.
 
-`SetGnssConfig` replaces the **whole** configuration: every field left out of the request takes its message default (`0` / `false`). That disables geofencing, RTK and navigation filters, and `timepulse_polarity: 0` means the falling edge. Start from `get_config` and send the full config back with your changes:
+`SetGnssConfig` replaces the **whole** configuration: every field left out of the request takes its message default (`0` / `false`). That disables geofencing, RTK and navigation filters, and `timepulse_polarity: 0` means the falling edge. Only the NTRIP settings (`rtk.ntrip`) are not in the message; they stay as loaded from YAML. Start from `get_config` and send the full config back with your changes:
 
 ```python
 import rclpy
@@ -330,10 +337,10 @@ When `publish_standard_topics: true`:
 
 | Transition | Action |
 |------------|--------|
-| `configure` | `IGnssHat::create()`, soft reset, load YAML (or pending config), `hat->start()`, create publishers, init RTK bridge |
+| `configure` | `IGnssHat::create()`, soft reset, load YAML (or pending config), `hat->start()`, create publishers, init RTK bridge and NTRIP link |
 | `activate` | Start `std::jthread` running `navigationLoop()` — blocks on `hat->waitAndGetFreshNavigation(stop_token)` |
 | `deactivate` | `request_stop()` + `join()` on navigation thread — the stop token ends the wait at once, without waiting for the next epoch |
-| `cleanup` | Reset all publishers, converter, RTK bridge, HAT pointer |
+| `cleanup` | Reset all publishers, converter, RTK bridge (closes the NTRIP connection), HAT pointer |
 | `shutdown` | Defensive cleanup from any state |
 
 Auto-transition in `Main.cpp` uses `MultiThreadedExecutor`. On `SIGINT`/`SIGTERM` rclcpp shuts the context down and the executor exits. No lifecycle transition can run after that, so `on_deactivate`/`on_cleanup` are not called: the node destructor stops the navigation thread and releases the HAT instead.
@@ -367,6 +374,17 @@ Three position modes:
 | `fixed_lla` | `latitude_deg`, `longitude_deg`, `height_m`, `position_accuracy_m` |
 
 **Rover** — subscribes to corrections topic, calls `hat->rtk()->rover()->applyCorrections()`.
+
+### NTRIP
+
+With `rtk.ntrip` the rover takes corrections straight from an NTRIP caster — no other ROS package or node is needed. It uses the NTRIP client built into gnsshat (`NtripClient`, NTRIP 2.0):
+
+- The node connects in the background, so `configure` does not wait for the network. Until the first connection succeeds it retries every 1 s, doubling up to 30 s; after that the client reconnects by itself.
+- The RTCM3 frames of one burst from the caster (one epoch) go to the receiver together, once the stream pauses for 100 ms.
+- Every `gga_interval_s` seconds the current fix is sent to the caster as GGA, which VRS and nearest-base mountpoints need. Nothing is sent before the first fix.
+- `/gnss/rtk/corrections` keeps working alongside.
+
+The NTRIP settings come from the YAML file only. They are not part of `GnssConfig`: `get_config` does not return them (so the password stays off the network), `set_config` keeps them and `save_to_yaml` writes them back. The password is stored in the YAML file in plain text.
 
 ## Build Details
 

@@ -12,3 +12,11 @@ timepulse:
 
 rtk:
   mode: rover
+  # Also take corrections from an NTRIP caster:
+  # ntrip:
+  #   host: caster.example.com   # required
+  #   port: 2101
+  #   mountpoint: MOUNT          # required
+  #   username: user
+  #   password: pass
+  #   gga_interval_s: 10         # send the position to the caster (VRS), 0 = off

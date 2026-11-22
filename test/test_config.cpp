@@ -744,6 +744,111 @@ TEST(ConfigNodeId, EmptyNodeIdNotSaved)
 }
 
 
+// --- rtk.ntrip ---
+
+static const std::string kRoverNtripYaml = R"(
+measurement_rate_hz: 1
+rtk:
+  mode: rover
+  ntrip:
+    host: caster.example.com
+    port: 8080
+    mountpoint: VRS_RTCM32
+    username: user
+    password: "0123"
+    gga_interval_s: 5
+)";
+
+TEST(ConfigNtrip, RoverLoadsAllKeys)
+{
+    TmpFile file(kRoverNtripYaml);
+    Config cfg;
+    cfg.loadFromYaml(file.path());
+
+    ASSERT_TRUE(cfg.ntrip().has_value());
+    const auto& ntrip = *cfg.ntrip();
+    EXPECT_EQ(ntrip.host, "caster.example.com");
+    EXPECT_EQ(ntrip.port, 8080);
+    EXPECT_EQ(ntrip.mountpoint, "VRS_RTCM32");
+    EXPECT_EQ(ntrip.username, "user");
+    EXPECT_EQ(ntrip.password, "0123");
+    EXPECT_EQ(ntrip.ggaInterval_s, 5u);
+}
+
+TEST(ConfigNtrip, Defaults)
+{
+    TmpFile file(
+        "rtk:\n  mode: rover\n  ntrip:\n    host: h\n    mountpoint: M\n");
+    Config cfg;
+    cfg.loadFromYaml(file.path());
+
+    ASSERT_TRUE(cfg.ntrip().has_value());
+    EXPECT_EQ(cfg.ntrip()->port, 2101);
+    EXPECT_EQ(cfg.ntrip()->ggaInterval_s, 10u);
+    EXPECT_TRUE(cfg.ntrip()->username.empty());
+    EXPECT_TRUE(cfg.ntrip()->password.empty());
+}
+
+TEST(ConfigNtrip, AbsentWithoutSection)
+{
+    TmpFile rover("rtk:\n  mode: rover\n");
+    Config cfg;
+    cfg.loadFromYaml(rover.path());
+    EXPECT_FALSE(cfg.ntrip().has_value());
+
+    TmpFile noRtk(kMinimalYaml);
+    cfg.loadFromYaml(noRtk.path());
+    EXPECT_FALSE(cfg.ntrip().has_value());
+}
+
+TEST(ConfigNtrip, InvalidSectionsThrow)
+{
+    expectLoadThrows("rtk:\n  mode: rover\n  ntrip:\n", "rtk.ntrip");
+    expectLoadThrows("rtk:\n  mode: rover\n  ntrip:\n    mountpoint: M\n",
+        "rtk.ntrip.host");
+    expectLoadThrows("rtk:\n  mode: rover\n  ntrip:\n    host: h\n",
+        "rtk.ntrip.mountpoint");
+    expectLoadThrows(
+        "rtk:\n  mode: rover\n  ntrip:\n    host: \"\"\n    mountpoint: M\n",
+        "rtk.ntrip.host");
+    expectLoadThrows(
+        "rtk:\n  mode: rover\n  ntrip:\n    host: h\n    mountpoint: M\n"
+        "    port: 0\n",
+        "rtk.ntrip.port");
+    expectLoadThrows(
+        "rtk:\n  mode: rover\n  ntrip:\n    host: h\n    mountpoint: M\n"
+        "    port: 70000\n",
+        "rtk.ntrip.port");
+}
+
+TEST(ConfigNtrip, SaveLoadRoundTrip)
+{
+    TmpFile src(kRoverNtripYaml);
+    Config original;
+    original.loadFromYaml(src.path());
+
+    TmpFile dst("");
+    original.saveToYaml(dst.path());
+
+    Config reloaded;
+    reloaded.loadFromYaml(dst.path());
+    EXPECT_EQ(reloaded.ntrip(), original.ntrip());
+}
+
+// GnssConfig has no NTRIP fields, so get_config never carries the password;
+// set_config keeps the NTRIP settings the node already has.
+TEST(ConfigNtrip, NotInMsg)
+{
+    TmpFile src(kRoverNtripYaml);
+    Config original;
+    original.loadFromYaml(src.path());
+
+    Config restored;
+    restored.fromMsg(original.toMsg());
+    EXPECT_FALSE(restored.ntrip().has_value());
+}
+
+
 // --- Topics struct ---
 
 TEST(Topics, DefaultEmpty)

@@ -22,6 +22,7 @@ RtkBridge::RtkBridge(
 
 RtkBridge::~RtkBridge()
 {
+    ntripRover_.reset();
     base_ = nullptr;
     rover_ = nullptr;
     sub_.reset();
@@ -30,7 +31,8 @@ RtkBridge::~RtkBridge()
 
 bool RtkBridge::initialize(const GnssConfig& config, IRtk* rtk,
     const std::string& correctionsTopic,
-    const ERtkCorrections corrections)
+    const ERtkCorrections corrections,
+    const std::optional<NtripConfig>& ntrip)
 {
     if (!rtk)
     {
@@ -64,9 +66,22 @@ bool RtkBridge::initialize(const GnssConfig& config, IRtk* rtk,
             std::bind(&RtkBridge::onCorrections, this, std::placeholders::_1));
         RCLCPP_INFO(node_.get_logger(),
             "RTK Rover mode - subscribing to corrections");
+
+        if (ntrip)
+        {
+            ntripRover_ = std::make_unique<NtripRoverLink>(*ntrip, *rover_,
+                node_.get_logger().get_child("ntrip"));
+        }
     }
 
     return true;
+}
+
+void RtkBridge::updatePosition(const PositionVelocityTime& pvt)
+{
+    if (ntripRover_ && pvt.fixQuality != EFixQuality::Invalid &&
+            pvt.fixStatus == EFixStatus::Active)
+        ntripRover_->updatePosition(pvt.latitude, pvt.longitude, pvt.altitude);
 }
 
 void RtkBridge::pollAndPublish()
@@ -205,7 +220,7 @@ const char* RtkBridge::correctionsName(const ERtkCorrections corrections)
 }
 
 void RtkBridge::toYaml(YAML::Emitter& out, const RtkConfig& cfg,
-    const ERtkCorrections corrections)
+    const ERtkCorrections corrections, const std::optional<NtripConfig>& ntrip)
 {
     out << YAML::Key << "rtk" << YAML::Value << YAML::BeginMap;
     out << YAML::Key << "mode" << YAML::Value
@@ -257,6 +272,9 @@ void RtkBridge::toYaml(YAML::Emitter& out, const RtkConfig& cfg,
             << YAML::Value << correctionsName(corrections);
         out << YAML::EndMap;
     }
+
+    if (ntrip)
+        ntrip->toYaml(out);
 
     out << YAML::EndMap;
 }

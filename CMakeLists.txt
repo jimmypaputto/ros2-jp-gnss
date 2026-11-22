@@ -91,6 +91,7 @@ add_executable(
     src/Converter.cpp
     src/GnssNode.cpp
     src/Main.cpp
+    src/Ntrip.cpp
     src/Rtk.cpp
 )
 ament_target_dependencies(
@@ -117,6 +118,7 @@ if(BUILD_TESTING)
     set(JP_GNSS_LIB_SOURCES
         src/Config.cpp
         src/Converter.cpp
+        src/Ntrip.cpp
         src/Rtk.cpp
     )
 
@@ -133,6 +135,7 @@ if(BUILD_TESTING)
     jp_gnss_hat_add_test(test_config    test/test_config.cpp)
     jp_gnss_hat_add_test(test_converter test/test_converter.cpp)
     jp_gnss_hat_add_test(test_rtk       test/test_rtk.cpp)
+    jp_gnss_hat_add_test(test_ntrip     test/test_ntrip.cpp)
 endif()
 
 install(

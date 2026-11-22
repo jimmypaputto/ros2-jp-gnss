@@ -126,4 +126,11 @@ timepulse:
 #     # longitude_deg: 21.0122
 #     # height_m: 120.0
 #     # position_accuracy_m: 0.01
+#   ntrip:                 # optional: rover takes corrections from this NTRIP caster
+#     host: caster.example.com   # required
+#     port: 2101
+#     mountpoint: MOUNT          # required
+#     username: user
+#     password: pass
+#     gga_interval_s: 10   # send the rover position to the caster (VRS), 0 = off
 

@@ -157,7 +157,8 @@ GnssNode::CallbackReturn GnssNode::on_configure(
             config_.gnssConfig(),
             hat_->rtk(),
             topics_.rtkCorrections,
-            config_.rtkCorrections()
+            config_.rtkCorrections(),
+            config_.ntrip()
         );
         if (!rtkInitialized)
             return CallbackReturn::FAILURE;
@@ -263,7 +264,10 @@ void GnssNode::navigationLoop(std::stop_token stopToken)
         sendNavigation(*navigation);
 
         if (rtk_)
+        {
+            rtk_->updatePosition(navigation->pvt);
             rtk_->pollAndPublish();
+        }
     }
 }
 
@@ -297,6 +301,7 @@ void GnssNode::onSetGnssConfig(
         return;
     }
     newConfig.nodeId(config_.nodeId());
+    newConfig.ntrip(config_.ntrip());
 
     if (Config::getDynamicModelName(newConfig.gnssConfig().dynamicModel)
             == "Unknown")

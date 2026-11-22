@@ -379,15 +379,18 @@ void Config::loadFromYaml(const std::string& path)
     config.navigationFilters = loadNavigationFilters(root);
 
     auto rtkCorrections = ERtkCorrections::Full;
+    std::optional<NtripConfig> ntrip;
     if (const auto rtkNode = yaml::optionalMap(root, "rtk", "rtk"))
     {
         config.rtk = RtkBridge::fromYaml(*rtkNode);
         rtkCorrections = RtkBridge::correctionsFromYaml(*rtkNode);
+        ntrip = NtripConfig::fromYaml(*rtkNode);
     }
 
     nodeId_ = nodeId;
     publishStandardTopics_ = publishStandardTopics;
     rtkCorrections_ = rtkCorrections;
+    ntrip_ = ntrip;
     gnssConfig_ = config;
 }
 
@@ -465,7 +468,7 @@ void Config::saveToYaml(const std::string& path) const
         saveNavigationFilters(out, *gnssConfig_.navigationFilters);
 
     if (gnssConfig_.rtk)
-        RtkBridge::toYaml(out, *gnssConfig_.rtk, rtkCorrections_);
+        RtkBridge::toYaml(out, *gnssConfig_.rtk, rtkCorrections_, ntrip_);
 
     out << YAML::EndMap;
 

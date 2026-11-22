@@ -5,6 +5,8 @@
 #ifndef JP_GNSS_HAT_RTK_HPP_
 #define JP_GNSS_HAT_RTK_HPP_
 
+#include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -15,6 +17,8 @@
 
 #include <jp_gnss_hat/msg/gnss_config.hpp>
 #include <jp_gnss_hat/msg/rtk_corrections.hpp>
+
+#include "Ntrip.hpp"
 
 
 namespace JimmyPaputto
@@ -36,14 +40,17 @@ public:
 
     bool initialize(const GnssConfig& config, IRtk* rtk,
         const std::string& correctionsTopic,
-        ERtkCorrections corrections);
+        ERtkCorrections corrections,
+        const std::optional<NtripConfig>& ntrip);
+    void updatePosition(const PositionVelocityTime& pvt);
     void pollAndPublish();
     void onCorrections(const jp_gnss_hat::msg::RtkCorrections::SharedPtr msg);
 
     static RtkConfig fromYaml(const YAML::Node& rtkNode);
     static ERtkCorrections correctionsFromYaml(const YAML::Node& rtkNode);
     static void toYaml(YAML::Emitter& out, const RtkConfig& cfg,
-        ERtkCorrections corrections = ERtkCorrections::Full);
+        ERtkCorrections corrections = ERtkCorrections::Full,
+        const std::optional<NtripConfig>& ntrip = std::nullopt);
 
     static void toMsg(const RtkConfig& cfg, jp_gnss_hat::msg::GnssConfig& msg);
     static RtkConfig fromMsg(const jp_gnss_hat::msg::GnssConfig& msg);
@@ -61,6 +68,7 @@ private:
         jp_gnss_hat::msg::RtkCorrections>::SharedPtr pub_;
     rclcpp::Subscription<jp_gnss_hat::msg::RtkCorrections>::SharedPtr sub_;
     std::vector<std::vector<uint8_t>> bufor_;
+    std::unique_ptr<NtripRoverLink> ntripRover_;
 };
 
 }  // JimmyPaputto
