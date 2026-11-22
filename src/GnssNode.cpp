@@ -192,23 +192,22 @@ GnssNode::CallbackReturn GnssNode::on_deactivate(
 GnssNode::CallbackReturn GnssNode::on_cleanup(
     const rclcpp_lifecycle::State&)
 {
-    RCLCPP_INFO(get_logger(), "on_cleanup: resetting rtk_");
+    RCLCPP_DEBUG(get_logger(), "on_cleanup: resetting rtk_");
     rtk_.reset();
-    RCLCPP_INFO(get_logger(), "on_cleanup: resetting navPublisher_");
+    RCLCPP_DEBUG(get_logger(), "on_cleanup: resetting navPublisher_");
     navPublisher_.reset();
-    RCLCPP_INFO(get_logger(), "on_cleanup: resetting navSatFixPub_");
+    RCLCPP_DEBUG(get_logger(), "on_cleanup: resetting navSatFixPub_");
     navSatFixPub_.reset();
-    RCLCPP_INFO(get_logger(), "on_cleanup: resetting velPub_");
+    RCLCPP_DEBUG(get_logger(), "on_cleanup: resetting velPub_");
     velPub_.reset();
-    RCLCPP_INFO(get_logger(), "on_cleanup: resetting timeRefPub_");
+    RCLCPP_DEBUG(get_logger(), "on_cleanup: resetting timeRefPub_");
     timeRefPub_.reset();
-    RCLCPP_INFO(get_logger(), "on_cleanup: resetting converter_");
+    RCLCPP_DEBUG(get_logger(), "on_cleanup: resetting converter_");
     converter_.reset();
 
-    RCLCPP_INFO(get_logger(), "on_cleanup: resetting hat_ (ptr=%p)",
-        static_cast<void*>(hat_.get()));
+    RCLCPP_DEBUG(get_logger(), "on_cleanup: resetting hat_");
     hat_.reset();
-    RCLCPP_INFO(get_logger(), "on_cleanup: hat_ reset complete");
+    RCLCPP_DEBUG(get_logger(), "on_cleanup: hat_ reset complete");
 
     RCLCPP_INFO(get_logger(), "GNSS node cleaned up");
     return CallbackReturn::SUCCESS;
