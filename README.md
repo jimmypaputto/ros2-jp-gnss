@@ -14,9 +14,96 @@ The HAT variant is auto-detected at startup via `/proc/device-tree/hat/product`.
 
 ## Installation
 
-### Prerequisites — ROS 2 from Source
+Raspberry Pi OS does not ship ROS 2 packages via `apt`. The quickest way to run the node there is Docker: the image contains ROS 2 Jazzy, gnsshat and this package. To build everything natively instead, see [Build from Source](#build-from-source).
 
-Raspberry Pi OS does not ship ROS 2 packages via `apt`. Build ROS 2 Jazzy from source following the official guide:
+### Docker (recommended on Raspberry Pi OS)
+
+#### 1. Prepare the host
+
+Docker cannot configure the kernel, so these steps stay on the Pi:
+
+- Install Docker: `curl -fsSL https://get.docker.com | sh`
+- Enable the interfaces your HAT uses in `sudo raspi-config` → *Interface Options*: **SPI** (L1 GNSS HAT, RTK HAT) and **Serial Port** — login shell *No*, hardware *Yes* (RTK HAT, TIME HAT)
+- RTK and TIME HAT on Pi 3 / 4 / Zero 2 W: free the UART from Bluetooth with `dtoverlay=disable-bt` in `/boot/firmware/config.txt`
+- Do not load the kernel PPS overlay on GPIO 5 (`dtoverlay=pps-gpio,gpiopin=5`) — the timepulse needs that pin
+- Stop gpsd if it is installed, it holds the receiver: `sudo systemctl disable --now gpsd gpsd.socket`
+- Reboot
+
+#### 2. Build and start
+
+```sh
+git clone https://github.com/jimmypaputto/ros2-jp-gnss.git
+cd ros2-jp-gnss/docker
+mkdir config
+cp ../config/gnss_config.yaml config/          # or a file from ../config/examples/
+sudo docker compose up -d --build
+```
+
+The first build takes a while (on a Pi with 2 GB RAM, up to half an hour, and it needs swap). The same image runs on Pi 4 and Pi 5 with a current Raspberry Pi OS kernel — keep the system updated (`sudo apt full-upgrade`).
+
+The node then starts on its own, also after a reboot (`restart: unless-stopped`).
+
+#### Everyday commands
+
+Run them in `ros2-jp-gnss/docker`:
+
+| Task | Command |
+|------|---------|
+| Follow the node log | `sudo docker compose logs -f` |
+| Restart after editing `config/gnss_config.yaml` | `sudo docker compose restart` |
+| Stop / start | `sudo docker compose down` / `sudo docker compose up -d` |
+| ROS 2 shell inside the image | `sudo docker compose exec gnss /entrypoint.sh bash` |
+| Update | `git pull && sudo docker compose up -d --build` |
+
+Inside the shell all `ros2` commands work: `ros2 topic list`, `ros2 topic echo /gps/fix`, `ros2 service call ...`.
+
+#### Config file
+
+`docker/config/` is mounted into the container as `/config`, so the node reads `config/gnss_config.yaml` from the host and `set_config` with `save_to_yaml` writes back to it. The whole [Configuration](#configuration) section applies; just edit the file and restart.
+
+#### Network and other machines
+
+The container uses the host network, so the node is visible to ROS 2 on the LAN like a native process. Requirements on the other machine:
+
+- the same `ROS_DOMAIN_ID` — the container uses `0` unless started with `sudo ROS_DOMAIN_ID=<id> docker compose up -d`
+- the standard topics (`/gps/fix`, `/gps/vel`, `/gps/time_reference`) work with any ROS 2 installation
+- the custom topics and services (`/gnss/navigation`, `get_config`, ...) need the `jp_gnss_hat` message definitions, i.e. this package built on that machine
+
+The image runs Fast DDS over UDP only. Shared-memory transport between a container and the host fails silently (topics are listed but no data arrives), and at GNSS data rates UDP costs nothing.
+
+RTK base and rover on two Pis: run the container on both with the same `ROS_DOMAIN_ID`; corrections travel over `/gnss/rtk/corrections` between them.
+
+#### Hardware access
+
+`compose.yaml` runs the container `privileged` with the host `/dev` mounted. Which devices a HAT uses depends on the variant and the Pi model, and Docker refuses to start a container when a listed device is missing, so a single explicit list would not fit every setup. If you prefer not to use `privileged`, replace it with the devices of your HAT and allow HAT detection through `/proc/device-tree`:
+
+```yaml
+    # instead of privileged: true and - /dev:/dev
+    devices:
+      - /dev/spidev0.0     # L1 GNSS HAT, RTK HAT
+      - /dev/ttyAMA0       # RTK HAT, TIME HAT
+      - /dev/gpiochip0
+    security_opt:
+      - systempaths=unconfined
+```
+
+Do not list `/dev/gpiochip4` (on Pi 5 it is a symlink to `gpiochip0`; the node uses `gpiochip0`).
+
+#### Troubleshooting
+
+| Symptom | Cause / fix |
+|---------|-------------|
+| `Failed to open gpiochip` | `/dev/gpiochip0` not reachable — check `privileged` and the `/dev` mount; on Pi 5 `ls -l /dev/gpiochip4` on the host must show a symlink to `gpiochip0`, otherwise update the kernel (`sudo apt full-upgrade`) |
+| Node exits right after start, HAT not recognized | HAT EEPROM not read by the firmware — `cat /proc/device-tree/hat/product` on the host must print the HAT name |
+| `Failed to open UART device` | serial port not enabled or used by Bluetooth / a login console — see step 1 |
+| Topics visible on another machine, but no data | different `ROS_DOMAIN_ID`, or a firewall blocking UDP between the machines |
+| `bind source path does not exist: .../config` | create `docker/config/` and copy a config file into it (step 2) |
+
+### Build from Source
+
+#### Prerequisites — ROS 2 from Source
+
+Build ROS 2 Jazzy from source following the official guide:
 [Building ROS 2 on Linux](https://docs.ros.org/en/jazzy/Installation/Alternatives/Ubuntu-Development-Setup.html)
 
 Once built, source the workspace before building this package:
@@ -25,13 +112,13 @@ Once built, source the workspace before building this package:
 source ~/ros2_jazzy/install/setup.bash
 ```
 
-### Dependencies
+#### Dependencies
 
 ```sh
 sudo apt-get install libgpiod-dev
 ```
 
-### Build
+#### Build
 
 ```sh
 source ~/ros2_jazzy/install/setup.bash

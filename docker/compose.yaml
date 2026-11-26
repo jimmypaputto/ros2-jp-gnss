@@ -1,0 +1,27 @@
+services:
+  gnss:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: jp-gnss-hat:jazzy
+    restart: unless-stopped
+    # Host network: the node is visible to ROS 2 on the LAN like a native process.
+    network_mode: host
+    # The HAT uses SPI, UART and GPIO, and which of them depends on the HAT variant
+    # and Pi model. Passing the host /dev covers every variant;
+    # privileged grants access to the devices and to /proc/device-tree (HAT detection).
+    privileged: true
+    volumes:
+      - /dev:/dev
+      # Directory, not a single file: set_config with save_to_yaml replaces the file.
+      - type: bind
+        source: ./config
+        target: /config
+        bind:
+          create_host_path: false
+    environment:
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+    command: ["ros2", "launch", "jp_gnss_hat", "gnss.launch.py",
+              "config_file:=/config/gnss_config.yaml"]
+    stop_signal: SIGINT
+    stop_grace_period: 15s
