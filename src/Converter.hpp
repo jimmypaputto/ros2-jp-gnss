@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <jimmypaputto/GnssHat.hpp>
 
@@ -18,6 +19,7 @@
 #include <geometry_msgs/msg/twist_with_covariance_stamped.hpp>
 
 #include <jp_gnss_hat/msg/navigation.hpp>
+#include <jp_gnss_hat/msg/rf_block_spectrum.hpp>
 #include <jp_gnss_hat/msg/rtk_corrections.hpp>
 
 
@@ -29,8 +31,8 @@ class Converter
 public:
     Converter(std::string frameId, rclcpp::Clock::SharedPtr clock);
 
-    jp_gnss_hat::msg::Navigation toNavigation(
-        const Navigation& navigation) const;
+    // Not const: remembers the last published spectrum (see lastSpectrum_).
+    jp_gnss_hat::msg::Navigation toNavigation(const Navigation& navigation);
     sensor_msgs::msg::NavSatFix toNavSatFix(
         const Navigation& navigation) const;
     geometry_msgs::msg::TwistWithCovarianceStamped toTwist(
@@ -51,9 +53,14 @@ private:
         const RfBlock& rfBlock);
     static jp_gnss_hat::msg::SatelliteInfo toSatelliteInfo(
         const SatelliteInfo& sat);
+    static jp_gnss_hat::msg::RfBlockSpectrum toRfBlockSpectrum(
+        const RfBlockSpectrumData& spectrum);
 
     std::string frameId_;
     rclcpp::Clock::SharedPtr clock_;
+    // gnsshat hands out the last MON-SPAN with every epoch, so the spectrum
+    // goes out only when it differs from the one published before.
+    std::vector<RfBlockSpectrumData> lastSpectrum_;
 };
 
 }  // JimmyPaputto

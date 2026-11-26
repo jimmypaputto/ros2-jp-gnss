@@ -73,6 +73,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
     "msg/DilutionOverPrecision.msg"
     "msg/SatelliteInfo.msg"
     "msg/RfBlock.msg"
+    "msg/RfBlockSpectrum.msg"
     "msg/GeofencingNav.msg"
     "msg/Navigation.msg"
     "msg/Rtcm3Frame.msg"

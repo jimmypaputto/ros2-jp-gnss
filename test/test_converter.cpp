@@ -200,6 +200,54 @@ TEST_F(ConverterTest, NavigationSatelliteFields)
               static_cast<uint8_t>(EGnssId::Galileo));
 }
 
+static RfBlockSpectrumData makeSpectrum(const uint8_t level)
+{
+    RfBlockSpectrumData spectrum{};
+    spectrum.id = 0;
+    spectrum.data.assign(256, level);
+    spectrum.span = 128000000;
+    spectrum.resolution = 500000;
+    spectrum.centerFreq = 1583400000;
+    spectrum.gain = 54;
+    return spectrum;
+}
+
+TEST_F(ConverterTest, NavigationSpectrumFields)
+{
+    auto nav = makeNavigation();
+    nav.rfBlocksSpectrumData.push_back(makeSpectrum(80));
+    const auto msg = converter_->toNavigation(nav);
+
+    ASSERT_EQ(msg.rf_spectrum.size(), 1u);
+    EXPECT_EQ(msg.rf_spectrum[0].id, 0);
+    ASSERT_EQ(msg.rf_spectrum[0].data.size(), 256u);
+    EXPECT_EQ(msg.rf_spectrum[0].data[0], 80);
+    EXPECT_EQ(msg.rf_spectrum[0].span, 128000000u);
+    EXPECT_EQ(msg.rf_spectrum[0].resolution, 500000u);
+    EXPECT_EQ(msg.rf_spectrum[0].center_freq, 1583400000u);
+    EXPECT_EQ(msg.rf_spectrum[0].gain, 54);
+}
+
+TEST_F(ConverterTest, NavigationSpectrumOnlyOncePerSpectrum)
+{
+    auto nav = makeNavigation();
+    nav.rfBlocksSpectrumData.push_back(makeSpectrum(80));
+
+    EXPECT_EQ(converter_->toNavigation(nav).rf_spectrum.size(), 1u);
+    EXPECT_TRUE(converter_->toNavigation(nav).rf_spectrum.empty());
+    EXPECT_TRUE(converter_->toNavigation(nav).rf_spectrum.empty());
+
+    nav.rfBlocksSpectrumData[0].data[100] = 81;
+    EXPECT_EQ(converter_->toNavigation(nav).rf_spectrum.size(), 1u);
+    EXPECT_TRUE(converter_->toNavigation(nav).rf_spectrum.empty());
+}
+
+TEST_F(ConverterTest, NavigationWithoutSpectrumHasNone)
+{
+    const auto nav = makeNavigation();
+    EXPECT_TRUE(converter_->toNavigation(nav).rf_spectrum.empty());
+}
+
 
 // --- toNavSatFix ---
 

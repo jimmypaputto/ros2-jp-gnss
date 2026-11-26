@@ -4,6 +4,7 @@
 
 #include "Converter.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <utility>
 
@@ -138,8 +139,39 @@ jp_gnss_hat::msg::SatelliteInfo Converter::toSatelliteInfo(
     return msg;
 }
 
+jp_gnss_hat::msg::RfBlockSpectrum Converter::toRfBlockSpectrum(
+    const RfBlockSpectrumData& spectrum)
+{
+    jp_gnss_hat::msg::RfBlockSpectrum msg;
+
+    msg.id          = spectrum.id;
+    msg.data        = spectrum.data;
+    msg.span        = spectrum.span;
+    msg.resolution  = spectrum.resolution;
+    msg.center_freq = spectrum.centerFreq;
+    msg.gain        = spectrum.gain;
+
+    return msg;
+}
+
+namespace
+{
+
+bool sameSpectrum(const std::vector<RfBlockSpectrumData>& a,
+    const std::vector<RfBlockSpectrumData>& b)
+{
+    return std::ranges::equal(a, b,
+        [](const RfBlockSpectrumData& x, const RfBlockSpectrumData& y) {
+            return x.id == y.id && x.data == y.data && x.span == y.span
+                && x.resolution == y.resolution
+                && x.centerFreq == y.centerFreq && x.gain == y.gain;
+        });
+}
+
+}  // namespace
+
 jp_gnss_hat::msg::Navigation Converter::toNavigation(
-    const Navigation& navigation) const
+    const Navigation& navigation)
 {
     jp_gnss_hat::msg::Navigation msg;
 
@@ -153,6 +185,14 @@ jp_gnss_hat::msg::Navigation Converter::toNavigation(
     msg.satellites.reserve(navigation.satellites.size());
     for (const auto& sat : navigation.satellites)
         msg.satellites.push_back(toSatelliteInfo(sat));
+
+    if (!sameSpectrum(navigation.rfBlocksSpectrumData, lastSpectrum_))
+    {
+        lastSpectrum_ = navigation.rfBlocksSpectrumData;
+        msg.rf_spectrum.reserve(lastSpectrum_.size());
+        for (const auto& spectrum : lastSpectrum_)
+            msg.rf_spectrum.push_back(toRfBlockSpectrum(spectrum));
+    }
 
     return msg;
 }

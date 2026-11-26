@@ -321,9 +321,12 @@ DilutionOverPrecision dop
 GeofencingNav geofencing
 RfBlock[] rf_blocks
 SatelliteInfo[] satellites
+RfBlockSpectrum[] rf_spectrum
 ```
 
-Single message per GNSS update. Contains PVT (UBX-NAV-PVT), DOP (UBX-NAV-DOP), per-satellite data (UBX-NAV-SAT), RF band diagnostics (UBX-MON-RF), and geofencing state (UBX-NAV-GEOFENCE).
+Single message per GNSS update. Contains PVT (UBX-NAV-PVT), DOP (UBX-NAV-DOP), per-satellite data (UBX-NAV-SAT), RF band diagnostics (UBX-MON-RF), geofencing state (UBX-NAV-GEOFENCE) and the RF spectrum (UBX-MON-SPAN).
+
+The receiver refreshes the spectrum about once per second, so `rf_spectrum` is set only in the first message after a new spectrum and is empty in the others. Keep the last non-empty one if you need it between updates.
 
 ### jp_gnss_hat/PositionVelocityTime
 
@@ -377,6 +380,15 @@ All `float32`: `geometric`, `position`, `time`, `vertical`, `horizontal`, `north
 | `cw_interference_suppression_level` | `float32` | |
 | `ofs_i`, `ofs_q` | `int8` | I/Q offset |
 | `mag_i`, `mag_q` | `uint8` | I/Q magnitude |
+
+### jp_gnss_hat/RfBlockSpectrum
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `uint8` | RF block index, matches `RfBlock.band` |
+| `data` | `uint8[]` | Amplitude bins as sent by the receiver |
+| `span` / `resolution` / `center_freq` | `uint32` | Hz |
+| `gain` | `uint8` | Receiver programmable gain, dB |
 
 ### jp_gnss_hat/GeofencingNav
 
