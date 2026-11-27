@@ -57,9 +57,9 @@ GnssNode::CallbackReturn GnssNode::on_configure(
     const rclcpp_lifecycle::State&)
 {
     hat_.reset(IGnssHat::create());
-    frameId_ = std::string(hat_->name());
+    hatName_ = std::string(hat_->name());
 
-    RCLCPP_INFO(get_logger(), "Detected HAT: %s", frameId_.c_str());
+    RCLCPP_INFO(get_logger(), "Detected HAT: %s", hatName_.c_str());
 
     hat_->softResetUbloxSom_HotStart();
 
@@ -134,7 +134,8 @@ GnssNode::CallbackReturn GnssNode::on_configure(
 
     RCLCPP_INFO(get_logger(), "GNSS HAT configured");
 
-    converter_ = std::make_unique<Converter>(frameId_, get_clock());
+    converter_ = std::make_unique<Converter>(
+        hatName_, config_.frameId(), get_clock());
 
     navPublisher_ = create_publisher<jp_gnss_hat::msg::Navigation>(
         topics_.navigation, 10);
@@ -152,7 +153,7 @@ GnssNode::CallbackReturn GnssNode::on_configure(
 
     if (config_.gnssConfig().rtk.has_value())
     {
-        rtk_ = std::make_unique<RtkBridge>(*this, frameId_);
+        rtk_ = std::make_unique<RtkBridge>(*this, hatName_);
         const bool rtkInitialized = rtk_->initialize(
             config_.gnssConfig(),
             hat_->rtk(),
@@ -301,6 +302,7 @@ void GnssNode::onSetGnssConfig(
         return;
     }
     newConfig.nodeId(config_.nodeId());
+    newConfig.frameId(config_.frameId());
     newConfig.ntrip(config_.ntrip());
 
     if (Config::getDynamicModelName(newConfig.gnssConfig().dynamicModel)

@@ -744,6 +744,43 @@ TEST(ConfigNodeId, EmptyNodeIdNotSaved)
 }
 
 
+// --- frame_id ---
+
+TEST(ConfigFrameId, DefaultsToGnssLink)
+{
+    TmpFile file(kMinimalYaml);
+    Config cfg;
+    cfg.loadFromYaml(file.path());
+    EXPECT_EQ(cfg.frameId(), "gnss_link");
+}
+
+TEST(ConfigFrameId, LoadsAndSavesFrameId)
+{
+    TmpFile src(kMinimalYaml + "frame_id: gps_antenna\n");
+    Config original;
+    original.loadFromYaml(src.path());
+    EXPECT_EQ(original.frameId(), "gps_antenna");
+
+    TmpFile dst("");
+    original.saveToYaml(dst.path());
+
+    Config reloaded;
+    reloaded.loadFromYaml(dst.path());
+    EXPECT_EQ(reloaded.frameId(), "gps_antenna");
+}
+
+TEST(ConfigFrameId, RejectsNamesTfCannotUse)
+{
+    for (const std::string value : {"\"\"", "\"/gnss_link\"", "\"L1 GNSS HAT\""})
+    {
+        TmpFile file(kMinimalYaml + "frame_id: " + value + "\n");
+        Config cfg;
+        EXPECT_THROW(cfg.loadFromYaml(file.path()), std::runtime_error)
+            << "frame_id: " << value;
+    }
+}
+
+
 // --- rtk.ntrip ---
 
 static const std::string kRoverNtripYaml = R"(

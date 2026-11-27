@@ -29,7 +29,10 @@ namespace JimmyPaputto
 class Converter
 {
 public:
-    Converter(std::string frameId, rclcpp::Clock::SharedPtr clock);
+    // hatName goes into the custom messages (the visualization tells the HAT
+    // variant by it), frameId into the standard ones (a TF frame).
+    Converter(std::string hatName, std::string frameId,
+        rclcpp::Clock::SharedPtr clock);
 
     // Not const: remembers the last published spectrum (see lastSpectrum_).
     jp_gnss_hat::msg::Navigation toNavigation(const Navigation& navigation);
@@ -41,7 +44,7 @@ public:
         const PositionVelocityTime& pvt) const;
 
 private:
-    std_msgs::msg::Header makeHeader() const;
+    std_msgs::msg::Header makeHeader(const std::string& frameId) const;
 
     static jp_gnss_hat::msg::PositionVelocityTime toPvt(
         const PositionVelocityTime& pvt);
@@ -56,6 +59,7 @@ private:
     static jp_gnss_hat::msg::RfBlockSpectrum toRfBlockSpectrum(
         const RfBlockSpectrumData& spectrum);
 
+    std::string hatName_;
     std::string frameId_;
     rclcpp::Clock::SharedPtr clock_;
     // gnsshat hands out the last MON-SPAN with every epoch, so the spectrum

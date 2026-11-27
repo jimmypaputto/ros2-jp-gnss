@@ -172,6 +172,7 @@ node_id: ""                    # multi-instance: changes node name and topic pre
 measurement_rate_hz: 1         # 1–25 Hz
 save_to_flash: false           # persist config to u-blox receiver flash
 publish_standard_topics: true  # publish /gps/fix, /gps/vel, /gps/time_reference
+frame_id: gnss_link            # TF frame of the antenna in the /gps/* headers
 dynamic_model: 2               # see table below
 
 timepulse:                     # optional — omit entire section to disable the pin
@@ -431,6 +432,8 @@ Flat message used by `GetGnssConfig` / `SetGnssConfig` services. Contains all co
 ## Standard Topic Mapping
 
 When `publish_standard_topics: true`:
+
+Their `header.frame_id` is `frame_id` from the config (default `gnss_link`) — a TF frame, so `robot_localization`'s `navsat_transform` and nav2 can place the antenna once you publish a transform to it, e.g. `ros2 run tf2_ros static_transform_publisher --frame-id base_link --child-frame-id gnss_link`. The custom `/gnss/...` messages keep the HAT name as `frame_id`.
 
 | Source | Target | Notes |
 |--------|--------|-------|

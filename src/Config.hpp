@@ -53,12 +53,20 @@ public:
     const std::string& nodeId() const { return nodeId_; }
     void nodeId(const std::string& value) { nodeId_ = value; }
 
+    // From YAML only, like node_id: the TF frame of the antenna in the headers of
+    // the standard topics (/gps/*), e.g. for robot_localization's navsat_transform.
+    const std::string& frameId() const { return frameId_; }
+    void frameId(const std::string& value) { frameId_ = value; }
+
+    static constexpr const char* kDefaultFrameId = "gnss_link";
+
 private:
     GnssConfig gnssConfig_{};
     bool publishStandardTopics_{true};
     ERtkCorrections rtkCorrections_{ERtkCorrections::Full};
     std::optional<NtripConfig> ntrip_;
     std::string nodeId_;
+    std::string frameId_{kDefaultFrameId};
 };
 
 }  // JimmyPaputto

@@ -28,7 +28,8 @@ protected:
     void SetUp() override
     {
         clock_ = std::make_shared<rclcpp::Clock>(RCL_ROS_TIME);
-        converter_ = std::make_unique<Converter>("gnss_frame", clock_);
+        converter_ = std::make_unique<Converter>(
+            "L1/L5 GNSS RTK HAT", "gnss_frame", clock_);
     }
 
     Navigation makeNavigation() const
@@ -122,7 +123,8 @@ TEST_F(ConverterTest, NavigationPvtFields)
     const auto nav = makeNavigation();
     const auto msg = converter_->toNavigation(nav);
 
-    EXPECT_EQ(msg.header.frame_id, "gnss_frame");
+    // The custom message keeps the HAT name: the visualization reads it.
+    EXPECT_EQ(msg.header.frame_id, "L1/L5 GNSS RTK HAT");
 
     EXPECT_EQ(msg.pvt.fix_quality,
               static_cast<uint8_t>(EFixQuality::GpsFix2D3D));
@@ -259,6 +261,13 @@ TEST_F(ConverterTest, NavSatFixPosition)
     EXPECT_DOUBLE_EQ(fix.latitude, 52.2297);
     EXPECT_DOUBLE_EQ(fix.longitude, 21.0122);
     EXPECT_DOUBLE_EQ(fix.altitude, 130.0);
+}
+
+TEST_F(ConverterTest, StandardMessagesUseFrameId)
+{
+    const auto nav = makeNavigation();
+    EXPECT_EQ(converter_->toNavSatFix(nav).header.frame_id, "gnss_frame");
+    EXPECT_EQ(converter_->toTwist(nav.pvt).header.frame_id, "gnss_frame");
 }
 
 TEST_F(ConverterTest, NavSatFixCovariance)

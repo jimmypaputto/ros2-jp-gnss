@@ -52,6 +52,12 @@ save_to_flash: false
 #   /gps/time_reference — sensor_msgs/TimeReference
 publish_standard_topics: true
 
+# TF frame of the GNSS antenna in the header of the standard topics. Publish a
+# transform from your robot's base frame to it (e.g. a static_transform_publisher
+# base_link -> gnss_link) for robot_localization's navsat_transform or nav2.
+# The custom /gnss/... topics keep the HAT name as frame_id.
+frame_id: gnss_link
+
 # Dynamic model:
 #   0  Portable       2  Stationary     3  Pedestrian
 #   4  Automotive     5  Sea            6  Airborne1G

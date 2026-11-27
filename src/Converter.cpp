@@ -12,17 +12,19 @@
 namespace JimmyPaputto
 {
 
-Converter::Converter(std::string frameId, rclcpp::Clock::SharedPtr clock)
-:   frameId_(std::move(frameId)),
+Converter::Converter(std::string hatName, std::string frameId,
+    rclcpp::Clock::SharedPtr clock)
+:   hatName_(std::move(hatName)),
+    frameId_(std::move(frameId)),
     clock_(std::move(clock))
 {
 }
 
-std_msgs::msg::Header Converter::makeHeader() const
+std_msgs::msg::Header Converter::makeHeader(const std::string& frameId) const
 {
     std_msgs::msg::Header header;
     header.stamp = clock_->now();
-    header.frame_id = frameId_;
+    header.frame_id = frameId;
     return header;
 }
 
@@ -175,7 +177,7 @@ jp_gnss_hat::msg::Navigation Converter::toNavigation(
 {
     jp_gnss_hat::msg::Navigation msg;
 
-    msg.header = makeHeader();
+    msg.header = makeHeader(hatName_);
     msg.pvt = toPvt(navigation.pvt);
     msg.dop = toDop(navigation.dop);
     msg.geofencing = toGeofencingNav(navigation.geofencing);
@@ -201,7 +203,7 @@ sensor_msgs::msg::NavSatFix Converter::toNavSatFix(
     const Navigation& navigation) const
 {
     sensor_msgs::msg::NavSatFix fix;
-    fix.header = makeHeader();
+    fix.header = makeHeader(frameId_);
     const auto& pvt = navigation.pvt;
 
     // Map fix_quality to NavSatStatus
@@ -297,7 +299,7 @@ geometry_msgs::msg::TwistWithCovarianceStamped Converter::toTwist(
     const PositionVelocityTime& pvt) const
 {
     geometry_msgs::msg::TwistWithCovarianceStamped twist;
-    twist.header = makeHeader();
+    twist.header = makeHeader(frameId_);
 
     // Decompose speed + heading into ENU linear velocity
     const double heading_rad = pvt.heading * M_PI / 180.0;
@@ -337,7 +339,7 @@ std::optional<sensor_msgs::msg::TimeReference> Converter::toTimeReference(
         return std::nullopt;
 
     sensor_msgs::msg::TimeReference timeRef;
-    timeRef.header = makeHeader();
+    timeRef.header = makeHeader(frameId_);
 
     struct tm t{};
     t.tm_year = pvt.date.year - 1900;

@@ -357,6 +357,16 @@ void Config::loadFromYaml(const std::string& path)
         yaml::value<std::string>(root, "node_id", "node_id", "");
     const auto publishStandardTopics = yaml::value<bool>(
         root, "publish_standard_topics", "publish_standard_topics", true);
+    const auto frameId = yaml::value<std::string>(
+        root, "frame_id", "frame_id", kDefaultFrameId);
+    // tf2 rejects empty names, names with a leading '/' and names with spaces
+    // (e.g. the HAT name "L1/L5 GNSS RTK HAT" is not a usable frame).
+    if (frameId.empty() || frameId.front() == '/'
+        || frameId.find_first_of(" \t") != std::string::npos)
+    {
+        throw std::runtime_error("Invalid frame_id \"" + frameId +
+            "\": a TF frame name, non-empty, without spaces or a leading '/'");
+    }
 
     GnssConfig config{};
 
@@ -388,6 +398,7 @@ void Config::loadFromYaml(const std::string& path)
     }
 
     nodeId_ = nodeId;
+    frameId_ = frameId;
     publishStandardTopics_ = publishStandardTopics;
     rtkCorrections_ = rtkCorrections;
     ntrip_ = ntrip;
@@ -406,6 +417,7 @@ void Config::saveToYaml(const std::string& path) const
         << YAML::Value << gnssConfig_.measurementRate_Hz;
     out << YAML::Key << "publish_standard_topics"
         << YAML::Value << publishStandardTopics_;
+    out << YAML::Key << "frame_id" << YAML::Value << frameId_;
     out << YAML::Key << "save_to_flash"
         << YAML::Value << gnssConfig_.saveToFlash;
     out << YAML::Key << "dynamic_model"

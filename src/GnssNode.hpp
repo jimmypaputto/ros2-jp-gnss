@@ -65,7 +65,7 @@ private:
 
     std::unique_ptr<IGnssHat, void(*)(IGnssHat*)> hat_;
     Topics topics_;
-    std::string frameId_;
+    std::string hatName_;
     std::unique_ptr<Converter> converter_;
 
     rclcpp_lifecycle::LifecyclePublisher<jp_gnss_hat::msg::Navigation>::SharedPtr
