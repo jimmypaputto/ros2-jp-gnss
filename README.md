@@ -138,7 +138,7 @@ colcon build --packages-select jp_gnss_hat
 source install/setup.bash
 ```
 
-The [gnsshat](https://github.com/jimmypaputto/gnsshat) library is taken from the system if installed (e.g. `sudo make install` in gnsshat → `/usr/local`). Otherwise CMake `FetchContent` fetches it from GitHub. Supported gnsshat release: `v2.0.0`.
+The [gnsshat](https://github.com/jimmypaputto/gnsshat) library is taken from the system if installed (e.g. `sudo make install` in gnsshat → `/usr/local`). Otherwise CMake `FetchContent` fetches it from GitHub. Supported gnsshat release: `v2.0.1`.
 
 ## Quick Start
 
