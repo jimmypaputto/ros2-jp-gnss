@@ -14,7 +14,7 @@ The HAT variant is auto-detected at startup via `/proc/device-tree/hat/product`.
 
 ## Installation
 
-Raspberry Pi OS does not ship ROS 2 packages via `apt`. The quickest way to run the node there is Docker: the image contains ROS 2 Jazzy, gnsshat and this package. To build everything natively instead, see [Build from Source](#build-from-source).
+Raspberry Pi OS does not ship ROS 2 packages via `apt`. The quickest way to run the node there is Docker: the image contains ROS 2 Jazzy, gnsshat, this package and the gnsshat web visualization. To build everything natively instead, see [Build from Source](#build-from-source).
 
 ### Docker (recommended on Raspberry Pi OS)
 
@@ -41,7 +41,12 @@ sudo docker compose up -d --build
 
 The first build takes a while (on a Pi with 2 GB RAM, up to half an hour, and it needs swap). The same image runs on Pi 4 and Pi 5 with a current Raspberry Pi OS kernel — keep the system updated (`sudo apt full-upgrade`).
 
-The node then starts on its own, also after a reboot (`restart: unless-stopped`).
+This starts two containers from the same image, both again after a reboot (`restart: unless-stopped`):
+
+- `gnss` — the ROS 2 node
+- `visualization` — the [gnsshat web visualization](https://github.com/jimmypaputto/gnsshat/tree/master/examples/visualization) in ROS 2 mode at **http://\<pi-address\>:5000**, fed by the node's topics. It reads `node_id` from the same config, so it follows `/gnss/<node_id>/navigation` on its own. The port is fixed at 5000.
+
+To run the node without the visualization: `sudo docker compose up -d gnss`.
 
 #### Everyday commands
 
@@ -49,7 +54,7 @@ Run them in `ros2-jp-gnss/docker`:
 
 | Task | Command |
 |------|---------|
-| Follow the node log | `sudo docker compose logs -f` |
+| Follow the logs (both / node only) | `sudo docker compose logs -f` / `sudo docker compose logs -f gnss` |
 | Restart after editing `config/gnss_config.yaml` | `sudo docker compose restart` |
 | Stop / start | `sudo docker compose down` / `sudo docker compose up -d` |
 | ROS 2 shell inside the image | `sudo docker compose exec gnss /entrypoint.sh bash` |
@@ -98,6 +103,8 @@ Do not list `/dev/gpiochip4` (on Pi 5 it is a symlink to `gpiochip0`; the node u
 | `Failed to open UART device` | serial port not enabled or used by Bluetooth / a login console — see step 1 |
 | Topics visible on another machine, but no data | different `ROS_DOMAIN_ID`, or a firewall blocking UDP between the machines |
 | `bind source path does not exist: .../config` | create `docker/config/` and copy a config file into it (step 2) |
+| Visualization page loads, but shows no data | node not running or `node_id` changed without a restart — `sudo docker compose restart`; `sudo docker compose logs visualization` shows the topic it listens on |
+| `visualization` exits with `Address already in use` | something else on the Pi uses port 5000 — stop it, or run the node only (`up -d gnss`) |
 
 ### Build from Source
 
