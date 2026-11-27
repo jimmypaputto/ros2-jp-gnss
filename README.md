@@ -29,17 +29,19 @@ Docker cannot configure the kernel, so these steps stay on the Pi:
 - Stop gpsd if it is installed, it holds the receiver: `sudo systemctl disable --now gpsd gpsd.socket`
 - Reboot
 
-#### 2. Build and start
+#### 2. Start
 
 ```sh
 git clone https://github.com/jimmypaputto/ros2-jp-gnss.git
 cd ros2-jp-gnss/docker
 mkdir config
 cp ../config/gnss_config.yaml config/          # or a file from ../config/examples/
-sudo docker compose up -d --build
+sudo docker compose up -d
 ```
 
-The first build takes a while (on a Pi with 2 GB RAM, up to half an hour, and it needs swap). The same image runs on Pi 4 and Pi 5 with a current Raspberry Pi OS kernel — keep the system updated (`sudo apt full-upgrade`).
+The first start downloads the prebuilt image `ghcr.io/jimmypaputto/jp-gnss-hat:jazzy` (built from `master` for arm64). The same image runs on Pi 4 and Pi 5 with a current Raspberry Pi OS kernel — keep the system updated (`sudo apt full-upgrade`).
+
+To build the image on the Pi from your checkout instead, e.g. after changing the code: `sudo docker compose up -d --build`. It takes a while (on a Pi with 2 GB RAM, up to half an hour, and it needs swap).
 
 This starts two containers from the same image, both again after a reboot (`restart: unless-stopped`):
 
@@ -58,7 +60,7 @@ Run them in `ros2-jp-gnss/docker`:
 | Restart after editing `config/gnss_config.yaml` | `sudo docker compose restart` |
 | Stop / start | `sudo docker compose down` / `sudo docker compose up -d` |
 | ROS 2 shell inside the image | `sudo docker compose exec gnss /entrypoint.sh bash` |
-| Update | `git pull && sudo docker compose up -d --build` |
+| Update | `git pull && sudo docker compose pull && sudo docker compose up -d` |
 
 Inside the shell all `ros2` commands work: `ros2 topic list`, `ros2 topic echo /gps/fix`, `ros2 service call ...`.
 

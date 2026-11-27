@@ -4,7 +4,9 @@ x-common: &common
   build:
     context: ..
     dockerfile: docker/Dockerfile
-  image: jp-gnss-hat:jazzy
+  # Prebuilt by .github/workflows/docker.yml and pulled when missing;
+  # `docker compose build` builds it locally from this checkout instead.
+  image: ghcr.io/jimmypaputto/jp-gnss-hat:jazzy
   restart: unless-stopped
   network_mode: host
   environment:
